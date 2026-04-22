@@ -1,0 +1,212 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Cognito User Pool for NestJS CRUD Demo application
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: nest-crud-demo
+    Description: Project prefix for resource names
+
+  EnvironmentName:
+    Type: String
+    Default: dev
+    Description: Environment name (e.g., dev, staging, prod)
+
+  SESFromEmail:
+    Type: String
+    Description: The FROM email address for Cognito emails (must be verified in SES)
+
+Resources:
+  # ──────────────────────────────────────────────
+  # Cognito User Pool
+  # ──────────────────────────────────────────────
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${ProjectName}-${EnvironmentName}-user-pool"
+
+      # Sign-in configuration - Email only
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      UsernameConfiguration:
+        CaseSensitive: false
+
+      # Self-registration enabled
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+        # ─── Invitation Message (Email) ───
+        InviteMessageTemplate:
+          EmailSubject: "Your temporary password"
+          EmailMessage: "Your username is {username} and temporary password is {####}."
+
+      # Password policy
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+          TemporaryPasswordValidityDays: 7
+
+      # MFA - No MFA
+      MfaConfiguration: "OFF"
+
+      # Account recovery - Email only
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+
+      # Device tracking - Don't remember
+      DeviceConfiguration:
+        ChallengeRequiredOnNewDevice: false
+        DeviceOnlyRememberedOnUserPrompt: false
+
+      # Email configuration - Send email via SES (DEVELOPER mode for custom FROM address)
+      EmailConfiguration:
+        EmailSendingAccount: DEVELOPER
+        SourceArn: !Sub "arn:aws:ses:us-east-1:${AWS::AccountId}:identity/${SESFromEmail}"
+        From: !Ref SESFromEmail
+
+      # ─── Verification Message (Email) ───
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+        EmailSubject: "Verify your email - NestJS CRUD Demo"
+        EmailMessage: !Sub |
+          <div style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #F0F4F8; padding: 40px 20px;">
+            <div style="max-width: 520px; margin: auto;">
+              <!-- Header -->
+              <div style="text-align: center; margin-bottom: 24px;">
+                <h1 style="color: #1E293B; font-size: 24px; margin: 0;">🚀 NestJS CRUD Demo</h1>
+              </div>
+              <!-- Card -->
+              <div style="background-color: #ffffff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 40px 32px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                <!-- Badge -->
+                <div style="display: inline-block; background-color: #DBEAFE; color: #1E40AF; padding: 6px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; margin-bottom: 24px;">
+                  ✉️ Email Verification
+                </div>
+                <!-- Title -->
+                <h2 style="color: #1E293B; margin: 0 0 12px 0; font-size: 20px;">Verify your email address</h2>
+                <!-- Description -->
+                <p style="color: #64748B; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
+                  Use the verification code below to complete your registration.
+                </p>
+                <!-- OTP Box -->
+                <div style="background-color: #F8FAFC; border: 2px dashed #CBD5E1; border-radius: 12px; padding: 24px; margin: 0 0 24px 0;">
+                  <div style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #3B82F6; font-family: 'Courier New', monospace;">
+                    {####}
+                  </div>
+                </div>
+                <!-- Expiry -->
+                <p style="color: #94A3B8; font-size: 12px; margin: 0 0 8px 0;">
+                  This code will expire shortly for security reasons.
+                </p>
+                <!-- Help -->
+                <p style="color: #94A3B8; font-size: 12px; margin: 0;">
+                  If you didn't request this, you can safely ignore this email.
+                </p>
+              </div>
+              <!-- Footer -->
+              <div style="text-align: center; margin-top: 24px;">
+                <p style="color: #94A3B8; font-size: 11px; margin: 0;">
+                  &copy; 2026 NestJS CRUD Demo. All rights reserved.
+                </p>
+              </div>
+            </div>
+          </div>
+
+      # User attributes schema
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+        - Name: name
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+          StringAttributeConstraints:
+            MinLength: "1"
+            MaxLength: "256"
+        - Name: role
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+          StringAttributeConstraints:
+            MinLength: "0"
+            MaxLength: "256"
+
+      # Verifying attribute changes disabled
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate: []
+
+  # ──────────────────────────────────────────────
+  # Cognito User Pool App Client
+  # ──────────────────────────────────────────────
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    DependsOn: CognitoUserPool
+    Properties:
+      ClientName: !Sub "${ProjectName}-${EnvironmentName}-app-client"
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: true
+
+      # Auth flows
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+      # Token validity
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+      # Security settings
+      EnableTokenRevocation: true
+      PreventUserExistenceErrors: ENABLED
+
+      # Readable and writable attributes
+      ReadAttributes:
+        - email
+        - email_verified
+        - name
+        - custom:role
+      WriteAttributes:
+        - email
+        - name
+        - custom:role
+
+# ──────────────────────────────────────────────
+# Outputs
+# ──────────────────────────────────────────────
+Outputs:
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref CognitoUserPool
+    Export:
+      Name: !Sub "${ProjectName}-${EnvironmentName}-UserPoolId"
+
+  UserPoolArn:
+    Description: Cognito User Pool ARN
+    Value: !GetAtt CognitoUserPool.Arn
+    Export:
+      Name: !Sub "${ProjectName}-${EnvironmentName}-UserPoolArn"
+
+  UserPoolClientId:
+    Description: Cognito User Pool App Client ID
+    Value: !Ref CognitoUserPoolClient
+    Export:
+      Name: !Sub "${ProjectName}-${EnvironmentName}-UserPoolClientId"
+
+  UserPoolClientSecret:
+    Description: Cognito User Pool App Client Secret
+    Value: !GetAtt CognitoUserPoolClient.ClientSecret
