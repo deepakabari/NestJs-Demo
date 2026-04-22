@@ -16,17 +16,15 @@ async function bootstrap(): Promise<void> {
   console.log('🌱 Seeding data...');
 
   const adminDto: CreateUserDto = {
+    auth0Id: 'auth0|seed-admin-001',
     email: 'admin@example.com',
-    password: 'Admin@123',
-    confirmPassword: 'Admin@123',
     role: UserRole.ADMIN,
     name: 'Admin User',
   };
 
   const userDto: CreateUserDto = {
+    auth0Id: 'auth0|seed-user-001',
     email: 'user@example.com',
-    password: 'User@1234',
-    confirmPassword: 'User@1234',
     role: UserRole.USER,
     name: 'Regular User',
   };
@@ -35,7 +33,7 @@ async function bootstrap(): Promise<void> {
   let user: User | null = null;
 
   try {
-    admin = await usersService.findByEmail(adminDto.email);
+    admin = await usersService.findByAuth0Id(adminDto.auth0Id);
     if (!admin) {
       console.log('➕ Creating admin user...');
       admin = await usersService.create(adminDto);
@@ -48,7 +46,7 @@ async function bootstrap(): Promise<void> {
   }
 
   try {
-    user = await usersService.findByEmail(userDto.email);
+    user = await usersService.findByAuth0Id(userDto.auth0Id);
     if (!user) {
       console.log('➕ Creating regular user...');
       user = await usersService.create(userDto);

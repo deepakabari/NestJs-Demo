@@ -2,6 +2,8 @@ export const messages = {
   SUCCESS: 'Success',
   INTERNAL_SERVER_ERROR: 'An internal server error occurred.',
   JWT_SECRET_NOT_FOUND: 'JWT_SECRET is not defined in environment',
+  AUTH0_DOMAIN_NOT_FOUND: 'AUTH0_DOMAIN is not defined in environment',
+  AUTH0_AUDIENCE_NOT_FOUND: 'AUTH0_AUDIENCE is not defined in environment',
   ACCESS_DENIED: 'You do not have permission to perform this action.',
   PASSWORD_DOES_NOT_MATCH: 'Password and confirm password do not match.',
   INVALID_CREDENTIALS: 'Invalid email or password.',

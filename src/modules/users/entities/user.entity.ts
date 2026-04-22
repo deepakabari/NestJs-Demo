@@ -1,5 +1,4 @@
 import {
-  BeforeInsert,
   Column,
   CreateDateColumn,
   DeleteDateColumn,
@@ -8,7 +7,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import { Product } from 'src/modules/products/entities/product.entity';
 import { UserRole } from 'src/constants/user-roles.enum';
 import { Exclude } from 'class-transformer';
@@ -19,17 +17,26 @@ export class User {
   id: number;
 
   @Column({ unique: true })
-  email: string;
+  auth0Id: string;
+
+  @Column({ type: 'varchar', unique: true, nullable: true })
+  email: string | null;
 
   @Exclude()
-  @Column()
-  password: string;
+  @Column({ type: 'varchar', nullable: true })
+  password: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  name: string | null;
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role: UserRole;
 
-  @Column()
-  name: string;
+  @Column({ default: false })
+  emailVerified: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastLogin: Date | null;
 
   @OneToMany(() => Product, (product) => product.user)
   products: Product[];
@@ -42,9 +49,4 @@ export class User {
 
   @DeleteDateColumn({ nullable: true })
   deletedAt: Date | null;
-
-  @BeforeInsert()
-  hashPassword() {
-    this.password = bcrypt.hashSync(this.password, 10);
-  }
 }

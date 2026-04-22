@@ -1,18 +1,11 @@
-import { IsEmail, IsNotEmpty, IsString, Matches } from 'class-validator';
-import { ValidationMessages } from 'src/constants/validation.constants';
+import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 
 export class LoginDto {
-  @IsNotEmpty({ message: ValidationMessages.email.required })
+  @IsNotEmpty()
   @IsEmail()
   email: string;
 
-  @IsNotEmpty({ message: ValidationMessages.password.required })
+  @IsNotEmpty()
   @IsString()
-  @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-    {
-      message: ValidationMessages.password.complexity,
-    },
-  )
   password: string;
 }
