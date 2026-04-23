@@ -7,6 +7,8 @@ import {
   Req,
   Headers,
   UnauthorizedException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { CognitoAuthService } from './cognito-auth.service';
 import { CognitoSignUpDto } from './dto/cognito-signup.dto';
@@ -35,6 +37,7 @@ export class CognitoAuthController {
    * Confirm user registration with the verification code.
    */
   @Post('confirm')
+  @HttpCode(HttpStatus.OK)
   confirmSignUp(@Body() dto: CognitoConfirmDto) {
     return this.cognitoAuthService.confirmSignUp(dto);
   }
@@ -44,6 +47,7 @@ export class CognitoAuthController {
    * Authenticate user and receive Cognito tokens.
    */
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   login(@Body() dto: CognitoLoginDto) {
     return this.cognitoAuthService.login(dto);
   }
@@ -53,6 +57,7 @@ export class CognitoAuthController {
    * Request a password reset code.
    */
   @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.cognitoAuthService.forgotPassword(dto);
   }
@@ -62,6 +67,7 @@ export class CognitoAuthController {
    * Reset password using the code.
    */
   @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.cognitoAuthService.confirmForgotPassword(dto);
   }
@@ -71,6 +77,7 @@ export class CognitoAuthController {
    * Resend the verification code.
    */
   @Post('resend-code')
+  @HttpCode(HttpStatus.OK)
   resendCode(@Body('email') email: string) {
     return this.cognitoAuthService.resendConfirmationCode(email);
   }
@@ -80,6 +87,7 @@ export class CognitoAuthController {
    * Get a new access token using a refresh token.
    */
   @Post('refresh-tokens')
+  @HttpCode(HttpStatus.OK)
   refreshTokens(@Body() dto: RefreshTokenDto) {
     return this.cognitoAuthService.refreshTokens(dto);
   }

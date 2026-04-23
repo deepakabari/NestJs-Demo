@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template to create KMS Key and Secrets Manager for User Data Encryption'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    Description: Environment name (e.g., prod, dev, staging)
+
+Resources:
+  # 1. KMS Key to protect the secret
+  EncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub 'KMS Key for User Data Encryption in ${Environment}'
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+
+  # 2. Alias for the KMS Key
+  EncryptionKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub 'alias/${Environment}/user-encryption-key'
+      TargetKeyId: !Ref EncryptionKey
+
+  # 3. Secrets Manager Secret
+  UserEncryptionSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${Environment}/user-encryption-key'
+      Description: 'Secret key for AES-256 database encryption'
+      KmsKeyId: !Ref EncryptionKey
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: 'key'
+        PasswordLength: 64
+        ExcludePunctuation: true
+        ExcludeNumbers: false
+        ExcludeUppercase: false
+        ExcludeLowercase: false
+        IncludeSpace: false
+
+Outputs:
+  SecretName:
+    Description: 'The SIMPLE NAME of the secret'
+    Value: !Sub '${Environment}/user-encryption-key'
+  SecretArn:
+    Description: 'The FULL ARN of the secret'
+    Value: !Ref UserEncryptionSecret
+  KmsKeyArn:
+    Description: 'The ARN of the KMS Key'
+    Value: !GetAtt EncryptionKey.Arn

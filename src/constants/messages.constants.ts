@@ -27,4 +27,13 @@ export const messages = {
   COGNITO_INVALID_PASSWORD:
     'Password does not meet the requirements. It must be at least 8 characters with uppercase, lowercase, numbers, and special characters.',
   COGNITO_TOO_MANY_REQUESTS: 'Too many requests. Please wait a moment and try again.',
+  COGNITO_PASSWORD_RESET_CODE_SENT: 'Password reset code sent to your email.',
+  COGNITO_PASSWORD_RESET_SUCCESS: 'Password has been reset successfully.',
+  COGNITO_CODE_RESENT: 'Confirmation code resent successfully.',
+
+  // Encryption Messages
+  ENCRYPTION_CONFIG_MISSING: 'Neither AWS_SECRET_NAME nor ENCRYPTION_KEY is defined',
+  ENCRYPTION_SECRET_EMPTY: 'Encryption secret exists but has no value.',
+  ENCRYPTION_KEY_NOT_FOUND: 'Encryption key not found in secret JSON structure.',
+  AWS_SECRET_FETCH_ERROR: 'Error fetching secret from AWS.',
 };

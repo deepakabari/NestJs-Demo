@@ -6,19 +6,28 @@ import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
 import { messages } from '../../constants/messages.constants';
 import * as bip39 from 'bip39';
+import { EncryptionService } from '../encryption/encryption.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    private encryptionService: EncryptionService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     if (!createUserDto.mnemonic) {
       createUserDto.mnemonic = bip39.generateMnemonic();
     }
+    
     const user = this.usersRepository.create(createUserDto);
+    
+    // Set email hash for fast lookup and uniqueness
+    if (user.email) {
+      user.emailHash = this.encryptionService.hash(user.email);
+    }
+    
     return this.usersRepository.save(user);
   }
 
@@ -29,9 +38,9 @@ export class UsersService {
     const queryBuilder = this.usersRepository.createQueryBuilder('user');
 
     if (search) {
-      queryBuilder.where('user.email LIKE :search OR user.firstName LIKE :search OR user.lastName LIKE :search', {
-        search: `%${search}%`,
-      });
+      // For encrypted data, we use exact match on hash for performance
+      const searchHash = this.encryptionService.hash(search);
+      queryBuilder.where('user.emailHash = :searchHash', { searchHash });
     }
 
     const [items, total] = await queryBuilder.skip(skip).take(limit).getManyAndCount();
@@ -56,7 +65,8 @@ export class UsersService {
   }
 
   async findByEmail(email: string) {
-    const user = await this.usersRepository.findOneBy({ email });
+    const emailHash = this.encryptionService.hash(email);
+    const user = await this.usersRepository.findOneBy({ emailHash });
     return user;
   }
 
@@ -66,6 +76,10 @@ export class UsersService {
 
   async update(id: number, updateUserDto: UpdateUserDto) {
     const user = await this.findOne(id);
+
+    if (updateUserDto.email) {
+      user.emailHash = this.encryptionService.hash(updateUserDto.email);
+    }
 
     const updatedUser = this.usersRepository.merge(user, updateUserDto);
     return this.usersRepository.save(updatedUser);

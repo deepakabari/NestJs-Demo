@@ -171,7 +171,7 @@ export class CognitoAuthService {
       });
 
       await this.cognitoClient.send(command);
-      return { message: 'Password reset code sent to your email.' };
+      return { message: messages.COGNITO_PASSWORD_RESET_CODE_SENT };
     } catch (error: unknown) {
       this.handleCognitoError(error);
     }
@@ -191,7 +191,7 @@ export class CognitoAuthService {
       });
 
       await this.cognitoClient.send(command);
-      return { message: 'Password has been reset successfully.' };
+      return { message: messages.COGNITO_PASSWORD_RESET_SUCCESS };
     } catch (error: unknown) {
       this.handleCognitoError(error);
     }
@@ -209,7 +209,7 @@ export class CognitoAuthService {
       });
 
       await this.cognitoClient.send(command);
-      return { message: 'Confirmation code resent successfully.' };
+      return { message: messages.COGNITO_CODE_RESENT };
     } catch (error: unknown) {
       this.handleCognitoError(error);
     }

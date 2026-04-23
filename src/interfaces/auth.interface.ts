@@ -13,11 +13,15 @@ export interface CognitoJwtPayload {
 
 export interface RequestWithCognitoUser extends Request {
   user: {
+    id: number;
     sub: string;
     email: string;
     username: string;
     clientId: string;
     scope: string;
     tokenUse: string;
+    firstName?: string;
+    lastName?: string;
+    [key: string]: any;
   };
 }

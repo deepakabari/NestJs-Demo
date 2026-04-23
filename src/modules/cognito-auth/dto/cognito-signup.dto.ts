@@ -13,11 +13,11 @@ export class CognitoSignUpDto {
   })
   password: string;
 
-  @IsNotEmpty({ message: ValidationMessages.name.required })
+  @IsNotEmpty({ message: ValidationMessages.firstName.required })
   @IsString()
   firstName: string;
 
-  @IsNotEmpty({ message: ValidationMessages.name.required })
+  @IsNotEmpty({ message: ValidationMessages.lastName.required })
   @IsString()
   lastName: string;
 
