@@ -4,8 +4,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
-import { messages } from 'src/constants/messages.constants';
+import { messages } from '../../constants/messages.constants';
+import * as bip39 from 'bip39';
 
 @Injectable()
 export class UsersService {
@@ -15,12 +15,36 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
+    if (!createUserDto.mnemonic) {
+      createUserDto.mnemonic = bip39.generateMnemonic();
+    }
     const user = this.usersRepository.create(createUserDto);
     return this.usersRepository.save(user);
   }
 
-  findAll(): Promise<User[]> {
-    return this.usersRepository.find();
+  async findAll(query?: { search?: string; page?: number; limit?: number }) {
+    const { search, page = 1, limit = 10 } = query || {};
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.usersRepository.createQueryBuilder('user');
+
+    if (search) {
+      queryBuilder.where('user.email LIKE :search OR user.firstName LIKE :search OR user.lastName LIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
+    const [items, total] = await queryBuilder.skip(skip).take(limit).getManyAndCount();
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findOne(id: number) {
@@ -36,12 +60,13 @@ export class UsersService {
     return user;
   }
 
+  async findBySub(sub: string) {
+    return this.usersRepository.findOneBy({ cognitoSub: sub });
+  }
+
   async update(id: number, updateUserDto: UpdateUserDto) {
     const user = await this.findOne(id);
 
-    if (updateUserDto.password) {
-      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
-    }
     const updatedUser = this.usersRepository.merge(user, updateUserDto);
     return this.usersRepository.save(updatedUser);
   }

@@ -1,16 +1,11 @@
 import {
-  BeforeInsert,
   Column,
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
-  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import * as bcrypt from 'bcrypt';
-import { Product } from 'src/modules/products/entities/product.entity';
-import { UserRole } from 'src/constants/user-roles.enum';
 import { Exclude } from 'class-transformer';
 
 @Entity()
@@ -21,18 +16,18 @@ export class User {
   @Column({ unique: true })
   email: string;
 
+  @Column({ unique: true, nullable: true })
+  cognitoSub: string;
+
+  @Column({ nullable: true })
+  firstName: string;
+
+  @Column({ nullable: true })
+  lastName: string;
+
   @Exclude()
-  @Column()
-  password: string;
-
-  @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
-  role: UserRole;
-
-  @Column()
-  name: string;
-
-  @OneToMany(() => Product, (product) => product.user)
-  products: Product[];
+  @Column({ type: 'text', nullable: true })
+  mnemonic: string;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -42,9 +37,4 @@ export class User {
 
   @DeleteDateColumn({ nullable: true })
   deletedAt: Date | null;
-
-  @BeforeInsert()
-  hashPassword() {
-    this.password = bcrypt.hashSync(this.password, 10);
-  }
 }

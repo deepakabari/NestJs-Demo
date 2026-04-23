@@ -10,10 +10,12 @@ import {
 } from '@nestjs/common';
 import { CognitoAuthService } from './cognito-auth.service';
 import { CognitoSignUpDto } from './dto/cognito-signup.dto';
-import { CognitoLoginDto } from './dto/cognito-login.dto';
-import { CognitoConfirmDto } from './dto/cognito-confirm.dto';
-import { CognitoAuthGuard } from './guards/cognito-auth.guard';
+import { AuthGuard } from '@nestjs/passport';
 import { messages } from 'src/constants/messages.constants';
+import { CognitoConfirmDto } from './dto/cognito-confirm.dto';
+import { CognitoLoginDto } from './dto/cognito-login.dto';
+import { ForgotPasswordDto, ResetPasswordDto, RefreshTokenDto } from './dto/cognito-auth-extras.dto';
+import { RequestWithCognitoUser } from 'src/interfaces/auth.interface';
 
 @Controller('cognito-auth')
 export class CognitoAuthController {
@@ -47,13 +49,49 @@ export class CognitoAuthController {
   }
 
   /**
+   * POST /cognito-auth/forgot-password
+   * Request a password reset code.
+   */
+  @Post('forgot-password')
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.cognitoAuthService.forgotPassword(dto);
+  }
+
+  /**
+   * POST /cognito-auth/reset-password
+   * Reset password using the code.
+   */
+  @Post('reset-password')
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.cognitoAuthService.confirmForgotPassword(dto);
+  }
+
+  /**
+   * POST /cognito-auth/resend-code
+   * Resend the verification code.
+   */
+  @Post('resend-code')
+  resendCode(@Body('email') email: string) {
+    return this.cognitoAuthService.resendConfirmationCode(email);
+  }
+
+  /**
+   * POST /cognito-auth/refresh-tokens
+   * Get a new access token using a refresh token.
+   */
+  @Post('refresh-tokens')
+  refreshTokens(@Body() dto: RefreshTokenDto) {
+    return this.cognitoAuthService.refreshTokens(dto);
+  }
+
+  /**
    * GET /cognito-auth/verify-token
    * Verifies the access token passed in the Authorization header.
    * Uses the Cognito JWT guard (passport strategy) for validation.
    */
   @Get('verify-token')
-  @UseGuards(CognitoAuthGuard)
-  verifyToken(@Req() req: any) {
+  @UseGuards(AuthGuard('cognito-jwt'))
+  verifyToken(@Req() req: RequestWithCognitoUser) {
     return {
       message: messages.COGNITO_TOKEN_VALID,
       user: req.user,

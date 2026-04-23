@@ -1,31 +1,35 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, Matches } from 'class-validator';
 import { ValidationMessages } from 'src/constants/validation.constants';
 
-export class CognitoSignUpDto {
-  @IsNotEmpty({ message: ValidationMessages.email.required })
+export class ForgotPasswordDto {
   @IsEmail({}, { message: ValidationMessages.email.invalid })
+  @IsNotEmpty({ message: ValidationMessages.email.required })
   email: string;
+}
+
+export class ResetPasswordDto {
+  @IsEmail({}, { message: ValidationMessages.email.invalid })
+  @IsNotEmpty({ message: ValidationMessages.email.required })
+  email: string;
+
+  @IsNotEmpty()
+  @IsString()
+  confirmationCode: string;
 
   @IsNotEmpty({ message: ValidationMessages.password.required })
   @IsString({ message: ValidationMessages.password.type })
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/, {
     message: ValidationMessages.password.complexity,
   })
-  password: string;
+  newPassword: string;
+}
 
-  @IsNotEmpty({ message: ValidationMessages.name.required })
-  @IsString()
-  firstName: string;
-
-  @IsNotEmpty({ message: ValidationMessages.name.required })
-  @IsString()
-  lastName: string;
-
+export class RefreshTokenDto {
   @IsNotEmpty()
   @IsString()
-  phoneNumber: string;
+  refreshToken: string;
 
-  @IsOptional()
-  @IsString()
-  mnemonic?: string;
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
 }

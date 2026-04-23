@@ -10,11 +10,6 @@ export const ValidationMessages = {
     complexity:
       'Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character.',
   },
-  role: {
-    required: 'Role is required.',
-    invalid: 'Role must be either "user" or "admin".',
-    type: 'Role must be a string.',
-  },
   name: {
     required: 'Product name is required.',
     type: 'Product name must be a string.',

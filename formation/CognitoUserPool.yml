@@ -4,22 +4,38 @@ Description: Cognito User Pool for NestJS CRUD Demo application
 Parameters:
   ProjectName:
     Type: String
-    Default: nest-crud-demo
     Description: Project prefix for resource names
 
   EnvironmentName:
     Type: String
-    Default: dev
     Description: Environment name (e.g., dev, staging, prod)
+
+  GoogleClientId:
+    Type: String
+    Description: Google OAuth Client ID
+
+  GoogleClientSecret:
+    Type: String
+    Description: Google OAuth Client Secret
+    NoEcho: true
 
   SESFromEmail:
     Type: String
     Description: The FROM email address for Cognito emails (must be verified in SES)
 
+  SESRegion:
+    Type: String
+    Description: The AWS Region for SES
+
+  CallbackURL:
+    Type: String
+    Description: OAuth callback URL
+
+  LogoutURL:
+    Type: String
+    Description: OAuth logout URL
+
 Resources:
-  # ──────────────────────────────────────────────
-  # Cognito User Pool
-  # ──────────────────────────────────────────────
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -36,10 +52,6 @@ Resources:
       # Self-registration enabled
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: false
-        # ─── Invitation Message (Email) ───
-        InviteMessageTemplate:
-          EmailSubject: "Your temporary password"
-          EmailMessage: "Your username is {username} and temporary password is {####}."
 
       # Password policy
       Policies:
@@ -49,7 +61,7 @@ Resources:
           RequireNumbers: true
           RequireSymbols: true
           RequireUppercase: true
-          TemporaryPasswordValidityDays: 7
+          TemporaryPasswordValidityDays: 3
 
       # MFA - No MFA
       MfaConfiguration: "OFF"
@@ -68,7 +80,7 @@ Resources:
       # Email configuration - Send email via SES (DEVELOPER mode for custom FROM address)
       EmailConfiguration:
         EmailSendingAccount: DEVELOPER
-        SourceArn: !Sub "arn:aws:ses:us-east-1:${AWS::AccountId}:identity/${SESFromEmail}"
+        SourceArn: !Sub "arn:aws:ses:%{SESRegion}:${AWS::AccountId}:identity/${SESFromEmail}"
         From: !Ref SESFromEmail
 
       # ─── Verification Message (Email) ───
@@ -124,50 +136,69 @@ Resources:
           AttributeDataType: String
           Mutable: true
           Required: true
-        - Name: name
-          AttributeDataType: String
-          Mutable: true
-          Required: false
-          StringAttributeConstraints:
-            MinLength: "1"
-            MaxLength: "256"
-        - Name: role
-          AttributeDataType: String
-          Mutable: true
-          Required: false
-          StringAttributeConstraints:
-            MinLength: "0"
-            MaxLength: "256"
 
-      # Verifying attribute changes disabled
+      # No verification needed when updating user details like email or phone_number.
+      # Changes will be applied directly.
       UserAttributeUpdateSettings:
         AttributesRequireVerificationBeforeUpdate: []
 
-  # ──────────────────────────────────────────────
-  # Cognito User Pool App Client
-  # ──────────────────────────────────────────────
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub "${ProjectName}-${EnvironmentName}-${AWS::AccountId}"
+      UserPoolId: !Ref CognitoUserPool
+
+  GoogleIdentityProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Properties:
+      ProviderName: Google
+      ProviderType: Google
+      UserPoolId: !Ref CognitoUserPool
+      ProviderDetails:
+        client_id: !Ref GoogleClientId
+        client_secret: !Ref GoogleClientSecret
+        authorize_scopes: "profile email openid"
+      AttributeMapping:
+        email: email
+        given_name: given_name
+        family_name: family_name
+
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
-    DependsOn: CognitoUserPool
+    DependsOn:
+      - CognitoUserPool
+      - GoogleIdentityProvider
     Properties:
       ClientName: !Sub "${ProjectName}-${EnvironmentName}-app-client"
       UserPoolId: !Ref CognitoUserPool
       GenerateSecret: true
+      SupportedIdentityProviders:
+        - COGNITO
+        - Google
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+        - aws.cognito.signin.user.admin
+      CallbackURLs:
+        - !Ref CallbackURL
+      LogoutURLs:
+        - !Ref LogoutURL
+      AllowedOAuthFlowsUserPoolClient: true
 
       # Auth flows
       ExplicitAuthFlows:
         - ALLOW_USER_PASSWORD_AUTH
-        - ALLOW_ADMIN_USER_PASSWORD_AUTH
         - ALLOW_USER_SRP_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
 
       # Token validity
-      AccessTokenValidity: 1
-      IdTokenValidity: 1
-      RefreshTokenValidity: 30
+      AccessTokenValidity: 1 # hr
+      RefreshTokenValidity: 1 # days
       TokenValidityUnits:
         AccessToken: hours
-        IdToken: hours
         RefreshToken: days
 
       # Security settings
@@ -179,27 +210,22 @@ Resources:
         - email
         - email_verified
         - name
-        - custom:role
+        - given_name
+        - family_name
+        - phone_number
       WriteAttributes:
         - email
         - name
-        - custom:role
+        - given_name
+        - family_name
+        - phone_number
 
-# ──────────────────────────────────────────────
-# Outputs
-# ──────────────────────────────────────────────
 Outputs:
   UserPoolId:
     Description: Cognito User Pool ID
     Value: !Ref CognitoUserPool
     Export:
       Name: !Sub "${ProjectName}-${EnvironmentName}-UserPoolId"
-
-  UserPoolArn:
-    Description: Cognito User Pool ARN
-    Value: !GetAtt CognitoUserPool.Arn
-    Export:
-      Name: !Sub "${ProjectName}-${EnvironmentName}-UserPoolArn"
 
   UserPoolClientId:
     Description: Cognito User Pool App Client ID
