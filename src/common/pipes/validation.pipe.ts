@@ -9,13 +9,17 @@ export class ValidationPipe implements PipeTransform<unknown> {
       return value;
     }
 
-    const object = plainToInstance(metatype, value as Record<string, unknown>);
-    const errors: ValidationError[] = await validate(object);
+    const object = plainToInstance(metatype, value);
+    const errors: ValidationError[] = await validate(object, {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      stopAtFirstError: true
+    });
 
     if (errors.length > 0) {
-      throw new BadRequestException(this.formatErrors(errors));
+      throw new BadRequestException(this.getFirstError(errors));
     }
-    return value;
+    return object;
   }
 
   private toValidate(metatype: unknown): metatype is new (...args: unknown[]) => object {
@@ -23,22 +27,20 @@ export class ValidationPipe implements PipeTransform<unknown> {
     return typeof metatype === 'function' && !types.includes(metatype);
   }
 
-  private formatErrors(errors: ValidationError[]): unknown[] {
-    return errors.map((error) => {
-      const constraints = error.constraints ? Object.values(error.constraints) : [];
-
-      if (error.children?.length) {
-        return {
-          property: error.property,
-          constraints,
-          children: this.formatErrors(error.children),
-        };
+  private getFirstError(errors: ValidationError[]): string {
+    const error = errors[0];
+    
+    if (error.constraints) {
+      const constraintKeys = Object.keys(error.constraints);
+      if (constraintKeys.length > 0) {
+        return error.constraints[constraintKeys[0]];
       }
+    }
 
-      return {
-        property: error.property,
-        constraints,
-      };
-    });
+    if (error.children && error.children.length > 0) {
+      return this.getFirstError(error.children);
+    }
+
+    return 'Validation failed';
   }
 }

@@ -15,30 +15,30 @@ export class User {
   id: number;
 
   @Column({ name: 'email_hash', unique: true, select: false })
-  emailHash: string;
+  email_hash: string;
 
   @Column({ transformer: new EncryptionTransformer() })
   email: string;
 
   @Column({ unique: true, nullable: true })
-  cognitoSub: string;
+  cognito_sub: string;
 
   @Column({ nullable: true, transformer: new EncryptionTransformer() })
-  firstName: string;
+  first_name: string;
 
   @Column({ nullable: true, transformer: new EncryptionTransformer() })
-  lastName: string;
+  last_name: string;
 
   @Exclude()
   @Column({ type: 'text', nullable: true })
   mnemonic: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  created_at: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updated_at: Date;
 
   @DeleteDateColumn({ nullable: true })
-  deletedAt: Date | null;
+  deleted_at: Date | null;
 }

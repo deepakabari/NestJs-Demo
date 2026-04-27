@@ -1,6 +1,7 @@
 import {
   AttributeType,
   AuthFlowType,
+  ChangePasswordCommand,
   CognitoIdentityProviderClient,
   ConfirmForgotPasswordCommand,
   ConfirmSignUpCommand,
@@ -22,6 +23,7 @@ import { createHmac } from 'crypto';
 import { messages } from '../../constants/messages.constants';
 import { UsersService } from '../users/users.service';
 import {
+  ChangePasswordDto,
   ForgotPasswordDto,
   RefreshTokenDto,
   ResetPasswordDto,
@@ -32,29 +34,29 @@ import { CognitoSignUpDto } from './dto/cognito-signup.dto';
 
 @Injectable()
 export class CognitoAuthService {
-  private readonly cognitoClient: CognitoIdentityProviderClient;
-  private readonly userPoolId: string;
-  private readonly clientId: string;
-  private readonly clientSecret: string;
+  private readonly cognito_client: CognitoIdentityProviderClient;
+  private readonly user_pool_id: string;
+  private readonly client_id: string;
+  private readonly client_secret: string;
 
   constructor(
-    private readonly configService: ConfigService,
-    private readonly usersService: UsersService,
+    private readonly config_service: ConfigService,
+    private readonly users_service: UsersService,
   ) {
-    const region = this.configService.get<string>('AWS_REGION', 'us-east-1');
-    this.userPoolId = this.configService.getOrThrow<string>('COGNITO_USER_POOL_ID');
-    this.clientId = this.configService.getOrThrow<string>('COGNITO_CLIENT_ID');
-    this.clientSecret = this.configService.getOrThrow<string>('COGNITO_CLIENT_SECRET');
+    const region = this.config_service.get<string>('AWS_REGION', 'us-east-1');
+    this.user_pool_id = this.config_service.getOrThrow<string>('COGNITO_USER_POOL_ID');
+    this.client_id = this.config_service.getOrThrow<string>('COGNITO_CLIENT_ID');
+    this.client_secret = this.config_service.getOrThrow<string>('COGNITO_CLIENT_SECRET');
 
-    this.cognitoClient = new CognitoIdentityProviderClient({ region });
+    this.cognito_client = new CognitoIdentityProviderClient({ region });
   }
 
   /**
    * Compute the SECRET_HASH required when the app client has a secret.
    */
   private computeSecretHash(username: string): string {
-    return createHmac('sha256', this.clientSecret)
-      .update(username + this.clientId)
+    return createHmac('sha256', this.client_secret)
+      .update(username + this.client_id)
       .digest('base64');
   }
 
@@ -64,40 +66,42 @@ export class CognitoAuthService {
    */
   async signUp(dto: CognitoSignUpDto) {
     // 1. Check if user already exists in local database to prevent orphaned records
-    const existingUser = await this.usersService.findByEmail(dto.email);
-    if (existingUser) {
+    const existing_user = await this.users_service.findByEmail(dto.email);
+    if (existing_user) {
       throw new BadRequestException(messages.DUPLICATE_EMAIL);
     }
 
     try {
       const command = new SignUpCommand({
-        ClientId: this.clientId,
+        ClientId: this.client_id,
         SecretHash: this.computeSecretHash(dto.email),
         Username: dto.email,
         Password: dto.password,
         UserAttributes: [
           { Name: 'email', Value: dto.email },
-          { Name: 'given_name', Value: dto.firstName },
-          { Name: 'family_name', Value: dto.lastName },
-          { Name: 'phone_number', Value: dto.phoneNumber },
+          { Name: 'given_name', Value: dto.first_name },
+          { Name: 'family_name', Value: dto.last_name },
+          { Name: 'phone_number', Value: dto.phone_number },
         ],
       });
 
-      const result = await this.cognitoClient.send(command);
+      const result = await this.cognito_client.send(command);
 
       // Save user to local database
-      await this.usersService.create({
+      await this.users_service.create({
         email: dto.email,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        cognitoSub: result.UserSub,
+        first_name: dto.first_name,
+        last_name: dto.last_name,
+        cognito_sub: result.UserSub,
         mnemonic: dto.mnemonic,
       });
 
       return {
         message: messages.COGNITO_SIGNUP_SUCCESS,
-        userSub: result.UserSub,
-        isConfirmed: result.UserConfirmed,
+        data: {
+          user_sub: result.UserSub,
+          is_confirmed: result.UserConfirmed,
+        },
       };
     } catch (error: unknown) {
       this.handleCognitoError(error);
@@ -110,13 +114,13 @@ export class CognitoAuthService {
   async confirmSignUp(dto: CognitoConfirmDto) {
     try {
       const command = new ConfirmSignUpCommand({
-        ClientId: this.clientId,
+        ClientId: this.client_id,
         SecretHash: this.computeSecretHash(dto.email),
         Username: dto.email,
-        ConfirmationCode: dto.confirmationCode,
+        ConfirmationCode: dto.confirmation_code,
       });
 
-      await this.cognitoClient.send(command);
+      await this.cognito_client.send(command);
 
       return {
         message: messages.COGNITO_CONFIRM_SUCCESS,
@@ -133,7 +137,7 @@ export class CognitoAuthService {
     try {
       const command = new InitiateAuthCommand({
         AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
-        ClientId: this.clientId,
+        ClientId: this.client_id,
         AuthParameters: {
           USERNAME: dto.email,
           PASSWORD: dto.password,
@@ -141,18 +145,19 @@ export class CognitoAuthService {
         },
       });
 
-      const result = await this.cognitoClient.send(command);
+      const result = await this.cognito_client.send(command);
 
       if (!result.AuthenticationResult) {
         throw new UnauthorizedException(messages.COGNITO_AUTH_FAILED);
       }
 
       return {
-        accessToken: result.AuthenticationResult.AccessToken,
-        idToken: result.AuthenticationResult.IdToken,
-        refreshToken: result.AuthenticationResult.RefreshToken,
-        expiresIn: result.AuthenticationResult.ExpiresIn,
-        tokenType: result.AuthenticationResult.TokenType,
+        message: messages.COGNITO_LOGIN_SUCCESS,
+        data: {
+          access_token: result.AuthenticationResult.AccessToken,
+          expires_in: result.AuthenticationResult.ExpiresIn,
+          token_type: result.AuthenticationResult.TokenType,
+        },
       };
     } catch (error: unknown) {
       this.handleCognitoError(error);
@@ -165,12 +170,12 @@ export class CognitoAuthService {
   async forgotPassword(dto: ForgotPasswordDto) {
     try {
       const command = new ForgotPasswordCommand({
-        ClientId: this.clientId,
+        ClientId: this.client_id,
         SecretHash: this.computeSecretHash(dto.email),
         Username: dto.email,
       });
 
-      await this.cognitoClient.send(command);
+      await this.cognito_client.send(command);
       return { message: messages.COGNITO_PASSWORD_RESET_CODE_SENT };
     } catch (error: unknown) {
       this.handleCognitoError(error);
@@ -183,15 +188,33 @@ export class CognitoAuthService {
   async confirmForgotPassword(dto: ResetPasswordDto) {
     try {
       const command = new ConfirmForgotPasswordCommand({
-        ClientId: this.clientId,
+        ClientId: this.client_id,
         SecretHash: this.computeSecretHash(dto.email),
         Username: dto.email,
-        ConfirmationCode: dto.confirmationCode,
-        Password: dto.newPassword,
+        ConfirmationCode: dto.confirmation_code,
+        Password: dto.new_password,
       });
 
-      await this.cognitoClient.send(command);
+      await this.cognito_client.send(command);
       return { message: messages.COGNITO_PASSWORD_RESET_SUCCESS };
+    } catch (error: unknown) {
+      this.handleCognitoError(error);
+    }
+  }
+
+  /**
+   * Change password for an authenticated user using their access token.
+   */
+  async changePassword(access_token: string, dto: ChangePasswordDto) {
+    try {
+      const command = new ChangePasswordCommand({
+        AccessToken: access_token,
+        PreviousPassword: dto.current_password,
+        ProposedPassword: dto.new_password,
+      });
+
+      await this.cognito_client.send(command);
+      return { message: messages.COGNITO_CHANGE_PASSWORD_SUCCESS };
     } catch (error: unknown) {
       this.handleCognitoError(error);
     }
@@ -203,12 +226,12 @@ export class CognitoAuthService {
   async resendConfirmationCode(email: string) {
     try {
       const command = new ResendConfirmationCodeCommand({
-        ClientId: this.clientId,
+        ClientId: this.client_id,
         SecretHash: this.computeSecretHash(email),
         Username: email,
       });
 
-      await this.cognitoClient.send(command);
+      await this.cognito_client.send(command);
       return { message: messages.COGNITO_CODE_RESENT };
     } catch (error: unknown) {
       this.handleCognitoError(error);
@@ -222,18 +245,18 @@ export class CognitoAuthService {
     try {
       const command = new InitiateAuthCommand({
         AuthFlow: AuthFlowType.REFRESH_TOKEN_AUTH,
-        ClientId: this.clientId,
+        ClientId: this.client_id,
         AuthParameters: {
-          REFRESH_TOKEN: dto.refreshToken,
+          REFRESH_TOKEN: dto.refresh_token,
           SECRET_HASH: this.computeSecretHash(dto.email),
         },
       });
 
-      const result = await this.cognitoClient.send(command);
+      const result = await this.cognito_client.send(command);
       return {
-        accessToken: result.AuthenticationResult?.AccessToken,
-        idToken: result.AuthenticationResult?.IdToken,
-        expiresIn: result.AuthenticationResult?.ExpiresIn,
+        access_token: result.AuthenticationResult?.AccessToken,
+        id_token: result.AuthenticationResult?.IdToken,
+        expires_in: result.AuthenticationResult?.ExpiresIn,
       };
     } catch (error: unknown) {
       this.handleCognitoError(error);
@@ -243,22 +266,25 @@ export class CognitoAuthService {
   /**
    * Update User Attributes in Cognito.
    */
-  async updateProfile(accessToken: string, attributes: { firstName?: string; lastName?: string }) {
+  async updateProfile(
+    access_token: string,
+    attributes: { first_name?: string; last_name?: string },
+  ) {
     try {
-      const userAttributes: AttributeType[] = [];
-      if (attributes.firstName)
-        userAttributes.push({ Name: 'given_name', Value: attributes.firstName });
-      if (attributes.lastName)
-        userAttributes.push({ Name: 'family_name', Value: attributes.lastName });
+      const user_attributes: AttributeType[] = [];
+      if (attributes.first_name)
+        user_attributes.push({ Name: 'given_name', Value: attributes.first_name });
+      if (attributes.last_name)
+        user_attributes.push({ Name: 'family_name', Value: attributes.last_name });
 
-      if (userAttributes.length === 0) return;
+      if (user_attributes.length === 0) return;
 
       const command = new UpdateUserAttributesCommand({
-        AccessToken: accessToken,
-        UserAttributes: userAttributes,
+        AccessToken: access_token,
+        UserAttributes: user_attributes,
       });
 
-      await this.cognitoClient.send(command);
+      await this.cognito_client.send(command);
     } catch (error: unknown) {
       this.handleCognitoError(error);
     }
@@ -268,13 +294,13 @@ export class CognitoAuthService {
    * Verify the access token by calling Cognito's GetUser API.
    * Returns user attributes if the token is valid.
    */
-  async verifyToken(accessToken: string) {
+  async verifyToken(access_token: string) {
     try {
       const command = new GetUserCommand({
-        AccessToken: accessToken,
+        AccessToken: access_token,
       });
 
-      const result = await this.cognitoClient.send(command);
+      const result = await this.cognito_client.send(command);
 
       const attributes: Record<string, string> = {};
       result.UserAttributes?.forEach((attr) => {
@@ -296,7 +322,7 @@ export class CognitoAuthService {
    * Handle Cognito-specific errors and map to NestJS exceptions.
    */
   private handleCognitoError(error: unknown): never {
-    const cognitoErrorMap: Record<
+    const cognito_error_map: Record<
       string,
       { status: 'bad_request' | 'unauthorized' | 'server'; message: string }
     > = {
@@ -334,8 +360,8 @@ export class CognitoAuthService {
       },
     };
 
-    const errorName = error instanceof Error ? error.name : 'UnknownError';
-    const mapped = cognitoErrorMap[errorName];
+    const error_name = error instanceof Error ? error.name : 'UnknownError';
+    const mapped = cognito_error_map[error_name];
 
     if (mapped) {
       switch (mapped.status) {
@@ -347,7 +373,7 @@ export class CognitoAuthService {
     }
 
     // Fallback for unmapped Cognito errors
-    const errorMessage = error instanceof Error ? error.message : null;
-    throw new InternalServerErrorException(errorMessage || messages.INTERNAL_SERVER_ERROR);
+    const error_message = error instanceof Error ? error.message : null;
+    throw new InternalServerErrorException(error_message || messages.INTERNAL_SERVER_ERROR);
   }
 }

@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: "2010-09-09"
+AWSTemplateFormatVersion: '2010-09-09'
 Description: Cognito User Pool for NestJS CRUD Demo application
 
 Parameters:
@@ -39,7 +39,7 @@ Resources:
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
-      UserPoolName: !Sub "${ProjectName}-${EnvironmentName}-user-pool"
+      UserPoolName: !Sub '${ProjectName}-${EnvironmentName}-user-pool'
 
       # Sign-in configuration - Email only
       UsernameAttributes:
@@ -64,7 +64,7 @@ Resources:
           TemporaryPasswordValidityDays: 3
 
       # MFA - No MFA
-      MfaConfiguration: "OFF"
+      MfaConfiguration: 'OFF'
 
       # Account recovery - Email only
       AccountRecoverySetting:
@@ -80,13 +80,13 @@ Resources:
       # Email configuration - Send email via SES (DEVELOPER mode for custom FROM address)
       EmailConfiguration:
         EmailSendingAccount: DEVELOPER
-        SourceArn: !Sub "arn:aws:ses:%{SESRegion}:${AWS::AccountId}:identity/${SESFromEmail}"
+        SourceArn: !Sub 'arn:aws:ses:%{SESRegion}:${AWS::AccountId}:identity/${SESFromEmail}'
         From: !Ref SESFromEmail
 
       # ─── Verification Message (Email) ───
       VerificationMessageTemplate:
         DefaultEmailOption: CONFIRM_WITH_CODE
-        EmailSubject: "Verify your email - NestJS CRUD Demo"
+        EmailSubject: 'Verify your email - NestJS CRUD Demo'
         EmailMessage: !Sub |
           <div style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #F0F4F8; padding: 40px 20px;">
             <div style="max-width: 520px; margin: auto;">
@@ -145,7 +145,7 @@ Resources:
   UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
     Properties:
-      Domain: !Sub "${ProjectName}-${EnvironmentName}-${AWS::AccountId}"
+      Domain: !Sub '${ProjectName}-${EnvironmentName}-${AWS::AccountId}'
       UserPoolId: !Ref CognitoUserPool
 
   GoogleIdentityProvider:
@@ -157,7 +157,7 @@ Resources:
       ProviderDetails:
         client_id: !Ref GoogleClientId
         client_secret: !Ref GoogleClientSecret
-        authorize_scopes: "profile email openid"
+        authorize_scopes: 'profile email openid'
       AttributeMapping:
         email: email
         given_name: given_name
@@ -169,7 +169,7 @@ Resources:
       - CognitoUserPool
       - GoogleIdentityProvider
     Properties:
-      ClientName: !Sub "${ProjectName}-${EnvironmentName}-app-client"
+      ClientName: !Sub '${ProjectName}-${EnvironmentName}-app-client'
       UserPoolId: !Ref CognitoUserPool
       GenerateSecret: true
       SupportedIdentityProviders:
@@ -225,13 +225,13 @@ Outputs:
     Description: Cognito User Pool ID
     Value: !Ref CognitoUserPool
     Export:
-      Name: !Sub "${ProjectName}-${EnvironmentName}-UserPoolId"
+      Name: !Sub '${ProjectName}-${EnvironmentName}-UserPoolId'
 
   UserPoolClientId:
     Description: Cognito User Pool App Client ID
     Value: !Ref CognitoUserPoolClient
     Export:
-      Name: !Sub "${ProjectName}-${EnvironmentName}-UserPoolClientId"
+      Name: !Sub '${ProjectName}-${EnvironmentName}-UserPoolClientId'
 
   UserPoolClientSecret:
     Description: Cognito User Pool App Client Secret

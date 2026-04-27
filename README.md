@@ -99,12 +99,12 @@ $ npm run test:cov
 
 ## 🧪 API Endpoints
 
-| Method | Endpoint         | Description               |
-|--------|------------------|---------------------------|
-| POST   | `/auth/register` | Register a new user       |
-| POST   | `/auth/login`    | Login and receive token   |
-| GET    | `/users`         | Get all users (admin only)|
-| CRUD   | `/products`      | Manage products (CRUD)    |
+| Method | Endpoint         | Description                |
+| ------ | ---------------- | -------------------------- |
+| POST   | `/auth/register` | Register a new user        |
+| POST   | `/auth/login`    | Login and receive token    |
+| GET    | `/users`         | Get all users (admin only) |
+| CRUD   | `/products`      | Manage products (CRUD)     |
 
 ## 🔐 Roles
 

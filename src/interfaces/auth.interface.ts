@@ -17,11 +17,11 @@ export interface RequestWithCognitoUser extends Request {
     sub: string;
     email: string;
     username: string;
-    clientId: string;
+    client_id: string;
     scope: string;
-    tokenUse: string;
-    firstName?: string;
-    lastName?: string;
+    token_use: string;
+    first_name?: string;
+    last_name?: string;
     [key: string]: any;
   };
 }

@@ -7,7 +7,6 @@ import AppDataSource from './config/typeorm.config';
 import { EncryptionModule } from './modules/encryption/encryption.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 
-
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),

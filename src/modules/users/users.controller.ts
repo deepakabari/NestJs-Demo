@@ -16,6 +16,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { GetUser } from '../../common/decoraters/get-user.decorator';
 import { messages } from '../../constants/messages.constants';
 import { CognitoAuthService } from '../cognito-auth/cognito-auth.service';
@@ -25,35 +33,48 @@ import { RevealMnemonicDto } from './dto/reveal-mnemonic.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
+@ApiTags('Users')
+@ApiBearerAuth('cognito-jwt')
 @Controller('users')
 @UseGuards(CognitoJwtGuard)
 export class UsersController {
   private readonly logger = new Logger(UsersController.name);
 
   constructor(
-    private readonly usersService: UsersService,
+    private readonly users_service: UsersService,
     @Inject(forwardRef(() => CognitoAuthService))
-    private readonly cognitoAuthService: CognitoAuthService,
+    private readonly cognito_auth_service: CognitoAuthService,
   ) {}
 
   @Post()
-  async create(@Body() createUserDto: CreateUserDto) {
-    const user = await this.usersService.create(createUserDto);
+  @ApiOperation({ summary: 'Create a new user' })
+  @ApiResponse({ status: 201, description: 'User created successfully' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 409, description: 'Duplicate email' })
+  async create(@Body() create_user_dto: CreateUserDto) {
+    const user = await this.users_service.create(create_user_dto);
     return { message: messages.USER_CREATED, data: user };
   }
 
   @Get('my-id')
-  getMyId(@GetUser('id') userId: number) {
-    return { userId };
+  @ApiOperation({ summary: 'Get the authenticated user ID' })
+  @ApiResponse({ status: 200, description: 'Returns the user ID' })
+  getMyId(@GetUser('id') user_id: number) {
+    return { user_id };
   }
 
   @Get()
+  @ApiOperation({ summary: 'List all users with pagination and search' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by email (exact match)' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page (default: 10)' })
+  @ApiResponse({ status: 200, description: 'Users fetched successfully' })
   async findAll(
     @Query('search') search?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    const result = await this.usersService.findAll({
+    const result = await this.users_service.findAll({
       search,
       page: page ? +page : undefined,
       limit: limit ? +limit : undefined,
@@ -62,8 +83,12 @@ export class UsersController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get a user by ID' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User details fetched successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async findOne(@Param('id') id: string) {
-    const user = await this.usersService.findOne(+id);
+    const user = await this.users_service.findOne(+id);
     return { message: messages.USER_FETCHED, data: user };
   }
 
@@ -73,42 +98,52 @@ export class UsersController {
    */
   @Post(':id/mnemonic')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reveal user mnemonic (owner only)' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'Mnemonic revealed successfully' })
+  @ApiResponse({ status: 403, description: 'Access denied — not the owner' })
+  @ApiResponse({ status: 404, description: 'User or mnemonic not found' })
   async revealMnemonic(
     @Param('id') id: string,
-    @GetUser('id') currentUserId: number,
-    @Body() revealMnemonicDto: RevealMnemonicDto,
+    @GetUser('id') current_user_id: number,
+    @Body() reveal_mnemonic_dto: RevealMnemonicDto,
   ) {
-    const targetUserId = +id;
+    const target_user_id = +id;
 
     // 1. Strict Ownership Check: Only users can reveal their own mnemonic
-    if (currentUserId !== targetUserId) {
+    if (current_user_id !== target_user_id) {
       this.logger.error(
-        `[SECURITY] Unauthorized reveal attempt: User ${currentUserId} tried to access mnemonic for User ${targetUserId}`,
+        `[SECURITY] Unauthorized reveal attempt: User ${current_user_id} tried to access mnemonic for User ${target_user_id}`,
       );
       throw new ForbiddenException(messages.ACCESS_DENIED);
     }
 
     // 2. Audit Logging: Every access to sensitive plain-text data must be logged
-    this.logger.warn(`[AUDIT] User ${currentUserId} requested mnemonic reveal.`);
+    this.logger.warn(`[AUDIT] User ${current_user_id} requested mnemonic reveal.`);
 
-    const mnemonic = await this.usersService.revealMnemonic(targetUserId, revealMnemonicDto?.pin);
+    const mnemonic = await this.users_service.revealMnemonic(
+      target_user_id,
+      reveal_mnemonic_dto?.pin,
+    );
     return { message: messages.MNEMONIC_REVEALED, data: { mnemonic } };
   }
 
   @Patch('profile')
+  @ApiOperation({ summary: 'Update authenticated user profile' })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
   async updateProfile(
-    @GetUser('id') userId: number,
-    @Body() updateUserDto: UpdateUserDto,
-    @Headers('authorization') authHeader: string,
+    @GetUser('id') user_id: number,
+    @Body() update_user_dto: UpdateUserDto,
+    @Headers('authorization') auth_header: string,
   ) {
-    const user = await this.usersService.update(userId, updateUserDto);
+    const user = await this.users_service.update(user_id, update_user_dto);
 
     // Sync name changes to Cognito if token is provided
-    if (authHeader && (updateUserDto.firstName || updateUserDto.lastName)) {
-      const token = authHeader.replace('Bearer ', '');
-      await this.cognitoAuthService.updateProfile(token, {
-        firstName: updateUserDto.firstName,
-        lastName: updateUserDto.lastName,
+    if (auth_header && (update_user_dto.first_name || update_user_dto.last_name)) {
+      const token = auth_header.replace('Bearer ', '');
+      await this.cognito_auth_service.updateProfile(token, {
+        first_name: update_user_dto.first_name,
+        last_name: update_user_dto.last_name,
       });
     }
 
@@ -116,19 +151,23 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Update a user by ID' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User updated successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async update(
     @Param('id') id: string,
-    @Body() updateUserDto: UpdateUserDto,
-    @Headers('authorization') authHeader: string,
+    @Body() update_user_dto: UpdateUserDto,
+    @Headers('authorization') auth_header: string,
   ) {
-    const user = await this.usersService.update(+id, updateUserDto);
+    const user = await this.users_service.update(+id, update_user_dto);
 
     // Sync name changes to Cognito if token is provided
-    if (authHeader && (updateUserDto.firstName || updateUserDto.lastName)) {
-      const token = authHeader.replace('Bearer ', '');
-      await this.cognitoAuthService.updateProfile(token, {
-        firstName: updateUserDto.firstName,
-        lastName: updateUserDto.lastName,
+    if (auth_header && (update_user_dto.first_name || update_user_dto.last_name)) {
+      const token = auth_header.replace('Bearer ', '');
+      await this.cognito_auth_service.updateProfile(token, {
+        first_name: update_user_dto.first_name,
+        last_name: update_user_dto.last_name,
       });
     }
 
@@ -136,8 +175,12 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete a user by ID' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User deleted successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async remove(@Param('id') id: string) {
-    await this.usersService.remove(+id);
+    await this.users_service.remove(+id);
     return { message: messages.USER_DELETED, data: null };
   }
 }

@@ -1,19 +1,33 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 import { STATUS_CODES } from 'http';
 
+const SENSITIVE_FIELDS = [
+  'password',
+  'mnemonic',
+  'pin',
+  'confirmation_code',
+  'new_password',
+  'refresh_token',
+  'access_token',
+  'id_token',
+  'secret',
+];
+
 @Injectable()
 export class LoggerMiddleware implements NestMiddleware {
+  private readonly logger = new Logger('HTTP');
+
   use(request: Request, response: Response, next: NextFunction): void {
     const { ip, method, originalUrl } = request;
-    const requestId = randomUUID();
-    const startTime = Date.now();
-    const funcName = this.deriveFunctionName(originalUrl);
+    const request_id = randomUUID();
+    const start_time = Date.now();
+    const func_name = this.deriveFunctionName(originalUrl);
 
     // IP Handling
-    let displayIp = ip?.replace('::ffff:', '') || '127.0.0.1';
-    if (displayIp === '::1') displayIp = '127.0.0.1';
+    let display_ip = ip?.replace('::ffff:', '') || '127.0.0.1';
+    if (display_ip === '::1') display_ip = '127.0.0.1';
 
     // ANSI Colors
     const cyan = '\x1b[36m';
@@ -26,35 +40,32 @@ export class LoggerMiddleware implements NestMiddleware {
     const bold = '\x1b[1m';
 
     // 1. Log START
-    const userAgent = request.get('user-agent') || 'Unknown';
-    const payload =
-      request.body && Object.keys(request.body as object).length > 0
-        ? JSON.stringify(request.body)
-        : 'None';
+    const user_agent = request.get('user-agent') || 'Unknown';
+    const payload = this.redactSensitiveFields(request.body as Record<string, unknown>);
 
-    console.log(`
+    this.logger.log(`
 ${magenta}${bold}» REQUEST RECEIVED${reset}
-${cyan}Function${reset}  : ${yellow}${funcName}${reset}
-${cyan}ID${reset}        : ${gray}${requestId}${reset}
-${cyan}Details${reset}   : ${bold}${method}${reset} ${yellow}${originalUrl.split('?')[0]}${reset} (${displayIp})
-${cyan}UserAgent${reset} : ${gray}${userAgent}${reset}
+${cyan}Function${reset}  : ${yellow}${func_name}${reset}
+${cyan}ID${reset}        : ${gray}${request_id}${reset}
+${cyan}Details${reset}   : ${bold}${method}${reset} ${yellow}${originalUrl.split('?')[0]}${reset} (${display_ip})
+${cyan}UserAgent${reset} : ${gray}${user_agent}${reset}
 ${cyan}Payload${reset}   : ${gray}${payload}${reset}`);
 
     // 2. Log END
     response.on('finish', () => {
-      const duration = Date.now() - startTime;
+      const duration = Date.now() - start_time;
       const { statusCode } = response;
-      const isError = statusCode >= 400;
-      const statusColor = isError ? red : green;
-      const statusText = STATUS_CODES[statusCode] || (isError ? 'ERROR' : 'SUCCESS');
-      const responseMessage = (request['resMessage'] as string) || statusText;
-      const headerColor = isError ? red : green;
+      const is_error = statusCode >= 400;
+      const status_color = is_error ? red : green;
+      const status_text = STATUS_CODES[statusCode] || (is_error ? 'ERROR' : 'SUCCESS');
+      const response_message = (request['resMessage'] as string) || status_text;
+      const header_color = is_error ? red : green;
 
-      console.log(`
-${headerColor}${bold}« REQUEST COMPLETED${reset}
-${cyan}ID${reset}        : ${gray}${requestId}${reset}
-${cyan}Status${reset}    : ${statusColor}${bold}${statusCode} [${statusText.toUpperCase()}]${reset}
-${cyan}Message${reset}   : ${statusColor}${responseMessage}${reset}
+      this.logger.log(`
+${header_color}${bold}« REQUEST COMPLETED${reset}
+${cyan}ID${reset}        : ${gray}${request_id}${reset}
+${cyan}Status${reset}    : ${status_color}${bold}${statusCode} [${status_text.toUpperCase()}]${reset}
+${cyan}Message${reset}   : ${status_color}${response_message}${reset}
 ${cyan}Duration${reset}  : ${yellow}${duration}ms${reset}
 ${gray}-----------------------------------------${reset}`);
     });
@@ -69,7 +80,22 @@ ${gray}-----------------------------------------${reset}`);
       .filter((p) => p);
     if (parts.length === 0) return 'root';
 
-    const lastPart = parts[parts.length - 1];
-    return lastPart.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+    const last_part = parts[parts.length - 1];
+    return last_part.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+  }
+
+  /**
+   * Redact sensitive fields from request payload before logging.
+   */
+  private redactSensitiveFields(body: Record<string, unknown> | undefined): string {
+    if (!body || Object.keys(body).length === 0) return 'None';
+
+    const redacted = { ...body };
+    for (const field of SENSITIVE_FIELDS) {
+      if (field in redacted) {
+        redacted[field] = '[REDACTED]';
+      }
+    }
+    return JSON.stringify(redacted);
   }
 }

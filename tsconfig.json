@@ -17,5 +17,8 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
+    "strictPropertyInitialization": false,
+    "rootDir": "./src",
+    "ignoreDeprecations": "6.0"
   }
 }

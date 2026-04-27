@@ -8,5 +8,5 @@ export class CognitoConfirmDto {
 
   @IsNotEmpty({ message: 'Confirmation code is required.' })
   @IsString()
-  confirmationCode: string;
+  confirmation_code: string;
 }

@@ -20,6 +20,7 @@ export const messages = {
   COGNITO_SIGNUP_SUCCESS:
     'User registered successfully. Please check your email for the verification code.',
   COGNITO_CONFIRM_SUCCESS: 'Email verified successfully. You can now log in.',
+  COGNITO_LOGIN_SUCCESS: 'Login successful.',
   COGNITO_AUTH_FAILED: 'Authentication failed. Please check your credentials.',
   COGNITO_TOKEN_VALID: 'Access token is valid.',
   COGNITO_TOKEN_INVALID: 'Access token is invalid or expired.',
@@ -36,6 +37,7 @@ export const messages = {
   COGNITO_TOO_MANY_REQUESTS: 'Too many requests. Please wait a moment and try again.',
   COGNITO_PASSWORD_RESET_CODE_SENT: 'Password reset code sent to your email.',
   COGNITO_PASSWORD_RESET_SUCCESS: 'Password has been reset successfully.',
+  COGNITO_CHANGE_PASSWORD_SUCCESS: 'Password changed successfully.',
   COGNITO_CODE_RESENT: 'Confirmation code resent successfully.',
 
   // Encryption Messages

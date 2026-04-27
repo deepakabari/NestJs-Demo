@@ -14,44 +14,44 @@ export class UsersService {
   private readonly logger = new Logger(UsersService.name);
   constructor(
     @InjectRepository(User)
-    private usersRepository: Repository<User>,
-    private encryptionService: EncryptionService,
-    private kmsEnvelopeService: KmsEnvelopeService,
+    private users_repository: Repository<User>,
+    private encryption_service: EncryptionService,
+    private kms_envelope_service: KmsEnvelopeService,
   ) {}
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
-    if (!createUserDto.mnemonic) {
-      createUserDto.mnemonic = bip39.generateMnemonic();
+  async create(create_user_dto: CreateUserDto): Promise<User> {
+    if (!create_user_dto.mnemonic) {
+      create_user_dto.mnemonic = bip39.generateMnemonic();
     }
-
-    this.logger.debug(`[DEBUG] Generated Mnemonic for new user: ${createUserDto.mnemonic}`);
 
     // Encrypt explicitly via async service call
-    createUserDto.mnemonic = await this.kmsEnvelopeService.encryptMnemonic(createUserDto.mnemonic);
-    
-    const user = this.usersRepository.create(createUserDto);
-    
+    create_user_dto.mnemonic = await this.kms_envelope_service.encryptMnemonic(
+      create_user_dto.mnemonic,
+    );
+
+    const user = this.users_repository.create(create_user_dto);
+
     // Set email hash for fast lookup and uniqueness
     if (user.email) {
-      user.emailHash = this.encryptionService.hash(user.email);
+      user.email_hash = this.encryption_service.hash(user.email);
     }
-    
-    return this.usersRepository.save(user);
+
+    return this.users_repository.save(user);
   }
 
   async findAll(query?: { search?: string; page?: number; limit?: number }) {
     const { search, page = 1, limit = 10 } = query || {};
     const skip = (page - 1) * limit;
 
-    const queryBuilder = this.usersRepository.createQueryBuilder('user');
+    const query_builder = this.users_repository.createQueryBuilder('user');
 
     if (search) {
       // For encrypted data, we use exact match on hash for performance
-      const searchHash = this.encryptionService.hash(search);
-      queryBuilder.where('user.emailHash = :searchHash', { searchHash });
+      const search_hash = this.encryption_service.hash(search);
+      query_builder.where('user.email_hash = :search_hash', { search_hash });
     }
 
-    const [items, total] = await queryBuilder.skip(skip).take(limit).getManyAndCount();
+    const [items, total] = await query_builder.skip(skip).take(limit).getManyAndCount();
 
     return {
       items,
@@ -59,54 +59,53 @@ export class UsersService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        total_pages: Math.ceil(total / limit),
       },
     };
   }
 
   async findOne(id: number) {
-    const user = await this.usersRepository.findOneBy({ id });
+    const user = await this.users_repository.findOneBy({ id });
     if (!user) {
       throw new NotFoundException(messages.USER_NOT_FOUND);
     }
     return user;
   }
 
-  async revealMnemonic(id: number, userPin?: string): Promise<string> {
+  async revealMnemonic(id: number, user_pin?: string): Promise<string> {
     const user = await this.findOne(id);
     if (!user.mnemonic) {
       throw new NotFoundException('Mnemonic not found for this user');
     }
-    
+
     // Decrypt explicitly only when specifically requested
-    const mnemonic = await this.kmsEnvelopeService.decryptMnemonic(user.mnemonic, userPin, id);
-    this.logger.debug(`[DEBUG] Revealed Mnemonic for user ${id}: ${mnemonic}`);
+    const mnemonic = await this.kms_envelope_service.decryptMnemonic(user.mnemonic, user_pin, id);
     return mnemonic;
   }
 
   async findByEmail(email: string) {
-    const emailHash = this.encryptionService.hash(email);
-    const user = await this.usersRepository.findOneBy({ emailHash });
+    const email_hash = this.encryption_service.hash(email);
+    const user = await this.users_repository.findOneBy({ email_hash });
     return user;
   }
 
   async findBySub(sub: string) {
-    return this.usersRepository.findOneBy({ cognitoSub: sub });
+    return this.users_repository.findOneBy({ cognito_sub: sub });
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto) {
+  async update(id: number, update_user_dto: UpdateUserDto) {
     const user = await this.findOne(id);
 
-    if (updateUserDto.email) {
-      user.emailHash = this.encryptionService.hash(updateUserDto.email);
+    if (update_user_dto.email) {
+      user.email_hash = this.encryption_service.hash(update_user_dto.email);
     }
 
-    const updatedUser = this.usersRepository.merge(user, updateUserDto);
-    return this.usersRepository.save(updatedUser);
+    const updated_user = this.users_repository.merge(user, update_user_dto);
+    return this.users_repository.save(updated_user);
   }
 
   async remove(id: number): Promise<void> {
-    const result = await this.usersRepository.delete(id);
+    const result = await this.users_repository.delete(id);
     if (result.affected === 0) {
       throw new NotFoundException(messages.USER_NOT_FOUND);
     }

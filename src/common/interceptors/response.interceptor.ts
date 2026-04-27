@@ -1,5 +1,5 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { messages } from 'src/constants/messages.constants';
@@ -10,22 +10,26 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, ResponseFormat
   intercept(context: ExecutionContext, next: CallHandler<T>): Observable<ResponseFormat<T>> {
     return next.handle().pipe(
       map((data: T | { message?: string; data?: T }) => {
-        let responseData: T;
+        let responseData: T | null;
         let message: string = messages.SUCCESS;
 
-        if (typeof data === 'object' && data !== null && 'data' in data) {
-          const casted = data as { message?: string; data?: T };
-          responseData = casted.data ?? (data as unknown as T);
-          message = casted.message ?? messages.SUCCESS;
+        if (typeof data === 'object' && data !== null && 'message' in data) {
+          // Service returned { message, data? } — hoist message regardless of data presence
+          message = data.message ?? messages.SUCCESS;
+          responseData = ('data' in data ? data.data : null) ?? null;
         } else {
           responseData = data as T;
         }
 
-        const request = context.switchToHttp().getRequest<Request>();
+        const ctx = context.switchToHttp();
+        const request = ctx.getRequest<Request>();
+        const response = ctx.getResponse<Response>();
+
         request['resMessage'] = message;
 
         return {
           success: true,
+          status_code: response.statusCode,
           message,
           data: responseData ?? null,
         };

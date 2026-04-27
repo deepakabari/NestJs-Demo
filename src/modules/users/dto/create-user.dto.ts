@@ -8,15 +8,15 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString()
-  firstName?: string;
+  first_name?: string;
 
   @IsOptional()
   @IsString()
-  lastName?: string;
+  last_name?: string;
 
   @IsOptional()
   @IsString()
-  cognitoSub?: string;
+  cognito_sub?: string;
 
   @IsOptional()
   @IsString()

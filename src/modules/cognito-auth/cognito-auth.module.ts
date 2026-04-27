@@ -7,7 +7,11 @@ import { CognitoAuthService } from './cognito-auth.service';
 import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [ConfigModule, PassportModule.register({ defaultStrategy: 'cognito-jwt' }), forwardRef(() => UsersModule)],
+  imports: [
+    ConfigModule,
+    PassportModule.register({ defaultStrategy: 'cognito-jwt' }),
+    forwardRef(() => UsersModule),
+  ],
   controllers: [CognitoAuthController],
   providers: [CognitoAuthService, CognitoJwtStrategy],
   exports: [CognitoAuthService, PassportModule],

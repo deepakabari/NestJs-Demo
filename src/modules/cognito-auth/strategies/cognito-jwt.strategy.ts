@@ -12,14 +12,14 @@ import { CognitoAuthService } from '../cognito-auth.service';
 @Injectable()
 export class CognitoJwtStrategy extends PassportStrategy(Strategy, 'cognito-jwt') {
   constructor(
-    private readonly configService: ConfigService,
-    private readonly usersService: UsersService,
-    private readonly cognitoAuthService: CognitoAuthService,
+    private readonly config_service: ConfigService,
+    private readonly users_service: UsersService,
+    private readonly cognito_auth_service: CognitoAuthService,
   ) {
-    const region = configService.get<string>('AWS_REGION', 'us-east-1');
-    const userPoolId = configService.getOrThrow<string>('COGNITO_USER_POOL_ID');
-    const jwksUri = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}/.well-known/jwks.json`;
-    const issuer = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`;
+    const region = config_service.get<string>('AWS_REGION', 'us-east-1');
+    const user_pool_id = config_service.getOrThrow<string>('COGNITO_USER_POOL_ID');
+    const jwks_uri = `https://cognito-idp.${region}.amazonaws.com/${user_pool_id}/.well-known/jwks.json`;
+    const issuer = `https://cognito-idp.${region}.amazonaws.com/${user_pool_id}`;
 
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -30,7 +30,7 @@ export class CognitoJwtStrategy extends PassportStrategy(Strategy, 'cognito-jwt'
         cache: true,
         rateLimit: true,
         jwksRequestsPerMinute: 10,
-        jwksUri,
+        jwksUri: jwks_uri,
       }),
       issuer,
       algorithms: ['RS256'],
@@ -48,60 +48,60 @@ export class CognitoJwtStrategy extends PassportStrategy(Strategy, 'cognito-jwt'
     }
 
     // 1. Try to find user by Cognito Sub
-    let localUser = await this.usersService.findBySub(payload.sub);
+    let local_user = await this.users_service.findBySub(payload.sub);
 
     // 2. If sub not found, check if a user with this email already exists
-    if (!localUser) {
+    if (!local_user) {
       let email = payload.email;
-      let firstName = payload.given_name;
-      let lastName = payload.family_name;
+      let first_name = payload.given_name;
+      let last_name = payload.family_name;
 
       // If attributes are missing from Access Token, fetch them from Cognito UserInfo API
       if (!email) {
         try {
-          const authHeader = req.headers.authorization;
-          const accessToken = authHeader?.replace('Bearer ', '');
-          if (!accessToken) {
+          const auth_header = req.headers.authorization;
+          const access_token = auth_header?.replace('Bearer ', '');
+          if (!access_token) {
             throw new UnauthorizedException(messages.COGNITO_TOKEN_INVALID);
           }
-          const cognitoUserInfo = await this.cognitoAuthService.verifyToken(accessToken);
+          const cognito_user_info = await this.cognito_auth_service.verifyToken(access_token);
 
-          email = cognitoUserInfo.attributes.email;
-          firstName = cognitoUserInfo.attributes.given_name;
-          lastName = cognitoUserInfo.attributes.family_name;
+          email = cognito_user_info.attributes.email;
+          first_name = cognito_user_info.attributes.given_name;
+          last_name = cognito_user_info.attributes.family_name;
         } catch {
           email = payload.username; // Fallback
         }
       }
 
-      const existingUserByEmail = await this.usersService.findByEmail(email);
+      const existing_user_by_email = await this.users_service.findByEmail(email);
 
-      if (existingUserByEmail) {
+      if (existing_user_by_email) {
         // Link the existing user to this new Cognito Sub
-        localUser = await this.usersService.update(existingUserByEmail.id, {
-          cognitoSub: payload.sub,
+        local_user = await this.users_service.update(existing_user_by_email.id, {
+          cognito_sub: payload.sub,
         });
       } else {
         // 3. If no user exists at all, create a new one (Lazy Sync)
-        localUser = await this.usersService.create({
+        local_user = await this.users_service.create({
           email: email,
-          firstName: firstName || payload.username,
-          lastName: lastName || '',
-          cognitoSub: payload.sub,
+          first_name: first_name || payload.username,
+          last_name: last_name || '',
+          cognito_sub: payload.sub,
         });
       }
     }
 
     return {
       sub: payload.sub,
-      email: localUser.email,
+      email: local_user.email,
       username: payload.username,
-      clientId: payload.client_id,
+      client_id: payload.client_id,
       scope: payload.scope,
-      tokenUse: payload.token_use,
-      id: localUser.id,
-      firstName: localUser.firstName,
-      lastName: localUser.lastName,
+      token_use: payload.token_use,
+      id: local_user.id,
+      first_name: local_user.first_name,
+      last_name: local_user.last_name,
     };
   }
 }

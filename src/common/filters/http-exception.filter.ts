@@ -12,7 +12,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = messages.INTERNAL_SERVER_ERROR;
-    let errorCode: string | number | null = null;
+    let error_code: string | number | null = null;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -21,9 +21,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (typeof res === 'string') {
         message = res;
       } else if (typeof res === 'object' && res !== null) {
-        const resObject = res as CustomExceptionResponse;
-        message = resObject.message ?? exception.message;
-        errorCode = resObject.errorCode ?? null;
+        const res_object = res as CustomExceptionResponse;
+        message = res_object.message ?? exception.message;
+        error_code = res_object.error_code ?? null;
       } else {
         message = exception.message;
       }
@@ -36,7 +36,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (error.code === 'ER_DUP_ENTRY' || error.code === '23505') {
         status = HttpStatus.CONFLICT;
         message = messages.DUPLICATE_EMAIL;
-        errorCode = error.code;
+        error_code = error.code;
       } else if (error.message) {
         message = error.message;
       }
@@ -44,13 +44,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     request['resMessage'] = message;
 
-    response.status(status).json({
+    const errorResponse: Record<string, unknown> = {
       success: false,
-      statusCode: status,
+      status_code: status,
       message,
-      errorCode,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-    });
+    };
+
+    if (error_code !== null) {
+      errorResponse['error_code'] = error_code;
+    }
+
+    response.status(status).json(errorResponse);
   }
 }

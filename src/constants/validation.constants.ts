@@ -10,11 +10,11 @@ export const ValidationMessages = {
     complexity:
       'Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character.',
   },
-  firstName: {
+  first_name: {
     required: 'First name is required.',
     type: 'First name must be a string.',
   },
-  lastName: {
+  last_name: {
     required: 'Last name is required.',
     type: 'Last name must be a string.',
   },
