@@ -48,6 +48,23 @@ Resources:
         ExcludeLowercase: false
         IncludeSpace: false
 
+  # 4. Mnemonic Encryption Secret
+  MnemonicEncryptionSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${Environment}/mnemonic-encryption-key'
+      Description: 'Secret key for Mnemonic AES-256 database encryption'
+      KmsKeyId: !Ref EncryptionKey
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: 'key'
+        PasswordLength: 64
+        ExcludePunctuation: true
+        ExcludeNumbers: false
+        ExcludeUppercase: false
+        ExcludeLowercase: false
+        IncludeSpace: false
+
 Outputs:
   SecretName:
     Description: 'The SIMPLE NAME of the secret'
@@ -58,3 +75,9 @@ Outputs:
   KmsKeyArn:
     Description: 'The ARN of the KMS Key'
     Value: !GetAtt EncryptionKey.Arn
+  MnemonicSecretName:
+    Description: 'The SIMPLE NAME of the mnemonic secret'
+    Value: !Sub '${Environment}/mnemonic-encryption-key'
+  MnemonicSecretArn:
+    Description: 'The FULL ARN of the mnemonic secret'
+    Value: !Ref MnemonicEncryptionSecret

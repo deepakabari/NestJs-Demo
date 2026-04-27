@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -7,19 +7,27 @@ import { Repository } from 'typeorm';
 import { messages } from '../../constants/messages.constants';
 import * as bip39 from 'bip39';
 import { EncryptionService } from '../encryption/encryption.service';
+import { KmsEnvelopeService } from '../encryption/kms-envelope.service';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
     private encryptionService: EncryptionService,
+    private kmsEnvelopeService: KmsEnvelopeService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     if (!createUserDto.mnemonic) {
       createUserDto.mnemonic = bip39.generateMnemonic();
     }
+
+    this.logger.debug(`[DEBUG] Generated Mnemonic for new user: ${createUserDto.mnemonic}`);
+
+    // Encrypt explicitly via async service call
+    createUserDto.mnemonic = await this.kmsEnvelopeService.encryptMnemonic(createUserDto.mnemonic);
     
     const user = this.usersRepository.create(createUserDto);
     
@@ -62,6 +70,18 @@ export class UsersService {
       throw new NotFoundException(messages.USER_NOT_FOUND);
     }
     return user;
+  }
+
+  async revealMnemonic(id: number, userPin?: string): Promise<string> {
+    const user = await this.findOne(id);
+    if (!user.mnemonic) {
+      throw new NotFoundException('Mnemonic not found for this user');
+    }
+    
+    // Decrypt explicitly only when specifically requested
+    const mnemonic = await this.kmsEnvelopeService.decryptMnemonic(user.mnemonic, userPin, id);
+    this.logger.debug(`[DEBUG] Revealed Mnemonic for user ${id}: ${mnemonic}`);
+    return mnemonic;
   }
 
   async findByEmail(email: string) {

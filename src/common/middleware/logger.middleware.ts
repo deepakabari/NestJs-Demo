@@ -1,6 +1,7 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
-import { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
+import { NextFunction, Request, Response } from 'express';
+import { STATUS_CODES } from 'http';
 
 @Injectable()
 export class LoggerMiddleware implements NestMiddleware {
@@ -9,7 +10,7 @@ export class LoggerMiddleware implements NestMiddleware {
     const requestId = randomUUID();
     const startTime = Date.now();
     const funcName = this.deriveFunctionName(originalUrl);
-    
+
     // IP Handling
     let displayIp = ip?.replace('::ffff:', '') || '127.0.0.1';
     if (displayIp === '::1') displayIp = '127.0.0.1';
@@ -26,7 +27,10 @@ export class LoggerMiddleware implements NestMiddleware {
 
     // 1. Log START
     const userAgent = request.get('user-agent') || 'Unknown';
-    const payload = Object.keys(request.body).length > 0 ? JSON.stringify(request.body) : 'None';
+    const payload =
+      request.body && Object.keys(request.body as object).length > 0
+        ? JSON.stringify(request.body)
+        : 'None';
 
     console.log(`
 ${magenta}${bold}» REQUEST RECEIVED${reset}
@@ -40,12 +44,17 @@ ${cyan}Payload${reset}   : ${gray}${payload}${reset}`);
     response.on('finish', () => {
       const duration = Date.now() - startTime;
       const { statusCode } = response;
-      const statusColor = statusCode >= 400 ? red : green;
+      const isError = statusCode >= 400;
+      const statusColor = isError ? red : green;
+      const statusText = STATUS_CODES[statusCode] || (isError ? 'ERROR' : 'SUCCESS');
+      const responseMessage = (request['resMessage'] as string) || statusText;
+      const headerColor = isError ? red : green;
 
       console.log(`
-${green}${bold}« REQUEST COMPLETED${reset}
+${headerColor}${bold}« REQUEST COMPLETED${reset}
 ${cyan}ID${reset}        : ${gray}${requestId}${reset}
-${cyan}Status${reset}    : ${statusColor}${bold}${statusCode}${reset}
+${cyan}Status${reset}    : ${statusColor}${bold}${statusCode} [${statusText.toUpperCase()}]${reset}
+${cyan}Message${reset}   : ${statusColor}${responseMessage}${reset}
 ${cyan}Duration${reset}  : ${yellow}${duration}ms${reset}
 ${gray}-----------------------------------------${reset}`);
     });
@@ -54,9 +63,12 @@ ${gray}-----------------------------------------${reset}`);
   }
 
   private deriveFunctionName(url: string): string {
-    const parts = url.split('?')[0].split('/').filter((p) => p);
+    const parts = url
+      .split('?')[0]
+      .split('/')
+      .filter((p) => p);
     if (parts.length === 0) return 'root';
-    
+
     const lastPart = parts[parts.length - 1];
     return lastPart.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
   }

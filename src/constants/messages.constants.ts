@@ -1,5 +1,12 @@
 export const messages = {
   SUCCESS: 'Success',
+  USER_CREATED: 'User created successfully.',
+  USERS_FETCHED: 'Users fetched successfully.',
+  USER_FETCHED: 'User details fetched successfully.',
+  MNEMONIC_REVEALED: 'Mnemonic revealed successfully.',
+  PROFILE_UPDATED: 'Profile updated successfully.',
+  USER_UPDATED: 'User updated successfully.',
+  USER_DELETED: 'User deleted successfully.',
   INTERNAL_SERVER_ERROR: 'An internal server error occurred.',
   JWT_SECRET_NOT_FOUND: 'JWT_SECRET is not defined in environment',
   ACCESS_DENIED: 'You do not have permission to perform this action.',
@@ -36,4 +43,9 @@ export const messages = {
   ENCRYPTION_SECRET_EMPTY: 'Encryption secret exists but has no value.',
   ENCRYPTION_KEY_NOT_FOUND: 'Encryption key not found in secret JSON structure.',
   AWS_SECRET_FETCH_ERROR: 'Error fetching secret from AWS.',
+  KMS_KEY_ID_REQUIRED: 'MNEMONIC_KMS_KEY_ID is strictly required for envelope encryption.',
+  KMS_DEK_GENERATION_FAILED: 'Failed to retrieve DEK from KMS',
+  KMS_DEK_DECRYPTION_FAILED: 'KMS failed to decrypt the DEK',
+  ENCRYPTION_FAILED_SECURELY: 'Encryption process failed securely.',
+  DECRYPTION_FAILED_SECURELY: 'Decryption process failed securely.',
 };

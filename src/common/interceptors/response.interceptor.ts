@@ -1,4 +1,5 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import { Request } from 'express';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { messages } from 'src/constants/messages.constants';
@@ -19,6 +20,9 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, ResponseFormat
         } else {
           responseData = data as T;
         }
+
+        const request = context.switchToHttp().getRequest<Request>();
+        request['resMessage'] = message;
 
         return {
           success: true,

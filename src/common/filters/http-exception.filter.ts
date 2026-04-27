@@ -42,6 +42,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     }
 
+    request['resMessage'] = message;
+
     response.status(status).json({
       success: false,
       statusCode: status,
