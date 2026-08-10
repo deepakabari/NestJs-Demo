@@ -21,6 +21,7 @@ export const messages = {
     'User registered successfully. Please check your email for the verification code.',
   COGNITO_CONFIRM_SUCCESS: 'Email verified successfully. You can now log in.',
   COGNITO_LOGIN_SUCCESS: 'Login successful.',
+  COGNITO_LOGOUT_SUCCESS: 'Logged out successfully.',
   COGNITO_AUTH_FAILED: 'Authentication failed. Please check your credentials.',
   COGNITO_TOKEN_VALID: 'Access token is valid.',
   COGNITO_TOKEN_INVALID: 'Access token is invalid or expired.',
@@ -32,6 +33,7 @@ export const messages = {
   COGNITO_CODE_EXPIRED: 'Verification code has expired. Please request a new one.',
   COGNITO_USER_NOT_CONFIRMED:
     'Your account has not been verified. Please check your email for the verification code.',
+  COGNITO_UNCONFIRMED_CODE_SENT: 'User is not confirmed. A new verification code has been sent to your email.',
   COGNITO_INVALID_PASSWORD:
     'Password does not meet the requirements. It must be at least 8 characters with uppercase, lowercase, numbers, and special characters.',
   COGNITO_TOO_MANY_REQUESTS: 'Too many requests. Please wait a moment and try again.',
@@ -39,6 +41,14 @@ export const messages = {
   COGNITO_PASSWORD_RESET_SUCCESS: 'Password has been reset successfully.',
   COGNITO_CHANGE_PASSWORD_SUCCESS: 'Password changed successfully.',
   COGNITO_CODE_RESENT: 'Confirmation code resent successfully.',
+
+  // Google OAuth Messages
+  COGNITO_GOOGLE_LOGIN_SUCCESS: 'Google login successful.',
+  COGNITO_GOOGLE_TOKEN_EXCHANGE_FAILED: 'Failed to exchange authorization code for tokens.',
+  COGNITO_GOOGLE_MISSING_CODE: 'Authorization code is missing from the callback.',
+
+  // Marketing Consent Messages
+  MARKETING_CONSENT_UPDATED: 'Marketing consent updated successfully.',
 
   // Encryption Messages
   ENCRYPTION_CONFIG_MISSING: 'Neither AWS_SECRET_NAME nor ENCRYPTION_KEY is defined',

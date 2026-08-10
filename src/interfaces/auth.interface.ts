@@ -1,5 +1,13 @@
 import { Request } from 'express';
 
+export interface CognitoTokens {
+  access_token: string;
+  refresh_token: string;
+  id_token?: string;
+  expires_in?: number;
+  token_type?: string;
+}
+
 export interface CognitoJwtPayload {
   sub: string;
   email?: string;
@@ -11,7 +19,11 @@ export interface CognitoJwtPayload {
   family_name?: string;
 }
 
-export interface RequestWithCognitoUser extends Request {
+export interface RequestWithCookies extends Request {
+  cookies: Record<string, string | undefined>;
+}
+
+export interface RequestWithCognitoUser extends RequestWithCookies {
   user: {
     id: number;
     sub: string;

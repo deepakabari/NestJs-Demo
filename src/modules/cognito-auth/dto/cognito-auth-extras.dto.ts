@@ -1,5 +1,5 @@
 import { IsEmail, IsNotEmpty, IsString, Matches } from 'class-validator';
-import { ValidationMessages } from 'src/constants/validation.constants';
+import { ValidationMessages } from '../../../constants/validation.constants';
 
 export class ForgotPasswordDto {
   @IsEmail({}, { message: ValidationMessages.email.invalid })
@@ -45,4 +45,9 @@ export class ChangePasswordDto {
     message: ValidationMessages.password.complexity,
   })
   new_password: string;
+}
+
+export class LogoutDto {
+  // Now read from cookie, keeping for backward compatibility if needed, but not required
+  refresh_token?: string;
 }

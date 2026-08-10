@@ -80,7 +80,7 @@ Resources:
       # Email configuration - Send email via SES (DEVELOPER mode for custom FROM address)
       EmailConfiguration:
         EmailSendingAccount: DEVELOPER
-        SourceArn: !Sub 'arn:aws:ses:%{SESRegion}:${AWS::AccountId}:identity/${SESFromEmail}'
+        SourceArn: !Sub 'arn:aws:ses:${SESRegion}:${AWS::AccountId}:identity/${SESFromEmail}'
         From: !Ref SESFromEmail
 
       # ─── Verification Message (Email) ───
@@ -88,43 +88,32 @@ Resources:
         DefaultEmailOption: CONFIRM_WITH_CODE
         EmailSubject: 'Verify your email - NestJS CRUD Demo'
         EmailMessage: !Sub |
-          <div style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #F0F4F8; padding: 40px 20px;">
-            <div style="max-width: 520px; margin: auto;">
+          <div style="font-family: 'Inter', Arial, sans-serif; background-color: #f1f5f9; padding: 50px 20px;">
+            <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
               <!-- Header -->
-              <div style="text-align: center; margin-bottom: 24px;">
-                <h1 style="color: #1E293B; font-size: 24px; margin: 0;">🚀 NestJS CRUD Demo</h1>
+              <div style="background-color: #0f172a; padding: 24px; text-align: center;">
+                <span style="color: #ffffff; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">__APP_TEXT__</span>
               </div>
-              <!-- Card -->
-              <div style="background-color: #ffffff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 40px 32px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-                <!-- Badge -->
-                <div style="display: inline-block; background-color: #DBEAFE; color: #1E40AF; padding: 6px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; margin-bottom: 24px;">
-                  ✉️ Email Verification
-                </div>
-                <!-- Title -->
-                <h2 style="color: #1E293B; margin: 0 0 12px 0; font-size: 20px;">Verify your email address</h2>
-                <!-- Description -->
-                <p style="color: #64748B; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
-                  Use the verification code below to complete your registration.
-                </p>
-                <!-- OTP Box -->
-                <div style="background-color: #F8FAFC; border: 2px dashed #CBD5E1; border-radius: 12px; padding: 24px; margin: 0 0 24px 0;">
-                  <div style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #3B82F6; font-family: 'Courier New', monospace;">
-                    {####}
-                  </div>
-                </div>
-                <!-- Expiry -->
-                <p style="color: #94A3B8; font-size: 12px; margin: 0 0 8px 0;">
-                  This code will expire shortly for security reasons.
-                </p>
-                <!-- Help -->
-                <p style="color: #94A3B8; font-size: 12px; margin: 0;">
-                  If you didn't request this, you can safely ignore this email.
-                </p>
-              </div>
+
+              <!-- Content -->
+              <div style="padding: 40px 32px;">
+                <h2 style="color: #0f172a; font-size: 24px; font-weight: 700; margin: 0 0 16px 0;">Verify Your Email</h2>
+                <span style="color: #475569; font-size: 16px; line-height: 1.6; margin: 0 0 24px 0;">Welcome to __APP_TEXT__.</span>
+                <p style="color: #475569; font-size: 16px; line-height: 1; margin: 0 0 24px 0;">Please use the verification code below to secure your account.</p>
+
+                <!-- Code Box -->
+                <div style="background-color: #f8fafc; border: 2px dashed #e2e8f0; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+                  <span style="font-family: 'Courier New', monospace; font-size: 36px; font-weight: 800; letter-spacing: 10px; color: #0f172a;">{####}</span>
+            </div>
+
+                <p style="color: #64748b; font-size: 14px; margin: 0;">This code will expire in <strong style="color: #0f172a;">24 Hours</strong>.</p>
+          </div>
+
               <!-- Footer -->
-              <div style="text-align: center; margin-top: 24px;">
-                <p style="color: #94A3B8; font-size: 11px; margin: 0;">
-                  &copy; 2026 NestJS CRUD Demo. All rights reserved.
+              <div style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #f1f5f9;">
+                <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin: 0;">
+            &copy; 2026 The Code Crafters Team<br>
+            This is an automated message. Please do not reply.
                 </p>
               </div>
             </div>
@@ -160,6 +149,7 @@ Resources:
         authorize_scopes: 'profile email openid'
       AttributeMapping:
         email: email
+        email_verified: email_verified
         given_name: given_name
         family_name: family_name
 

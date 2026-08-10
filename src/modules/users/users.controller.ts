@@ -5,7 +5,6 @@ import {
   ForbiddenException,
   forwardRef,
   Get,
-  Headers,
   HttpCode,
   HttpStatus,
   Inject,
@@ -14,29 +13,31 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
-  ApiBearerAuth,
+  ApiCookieAuth,
   ApiOperation,
   ApiParam,
   ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { CookieAuthGuard } from '../../common/guards/cookie-auth.guard';
 import { GetUser } from '../../common/decoraters/get-user.decorator';
 import { messages } from '../../constants/messages.constants';
+import { RequestWithCookies } from '../../interfaces/auth.interface';
 import { CognitoAuthService } from '../cognito-auth/cognito-auth.service';
-import { CognitoJwtGuard } from '../cognito-auth/guards/cognito-jwt.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { RevealMnemonicDto } from './dto/reveal-mnemonic.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('Users')
-@ApiBearerAuth('cognito-jwt')
+@ApiCookieAuth('access_token')
 @Controller('users')
-@UseGuards(CognitoJwtGuard)
+@UseGuards(CookieAuthGuard)
 export class UsersController {
   private readonly logger = new Logger(UsersController.name);
 
@@ -54,6 +55,48 @@ export class UsersController {
   async create(@Body() create_user_dto: CreateUserDto) {
     const user = await this.users_service.create(create_user_dto);
     return { message: messages.USER_CREATED, data: user };
+  }
+
+  // TEST ENDPOINT: Quick bulk insert of dummy pending users to test the cron job
+  @Post('test-bulk')
+  @ApiOperation({ summary: 'TEST ONLY: Insert dummy pending users' })
+  async createBulkDummyUsers() {
+    const createdEmails: string[] = [];
+
+    for (let i = 3; i < 4; i++) {
+      const email = `test${i}@yopmail.com`;
+      const password = 'Password123!';
+      const first_name = `Test${i}`;
+      const last_name = `User${i}`;
+
+      try {
+        // 1. Create in Cognito first to get sub and enable login
+        const cognitoResult = await this.cognito_auth_service.adminCreateConfirmedUser({
+          email,
+          password,
+          first_name,
+          last_name,
+        });
+
+        // 2. Create in local database with status 'pending'
+        await this.users_service.create({
+          email,
+          first_name,
+          last_name,
+          cognito_sub: cognitoResult?.userSub,
+        });
+
+        this.logger.log(`Successfully created dummy user: ${email}`);
+        createdEmails.push(email);
+      } catch (error) {
+        this.logger.error(`Failed to create bulk user ${email}:`, error);
+      }
+    }
+    return {
+      message: 'Inserted pending users with Cognito accounts!',
+      password: 'Password123!',
+      emails: createdEmails,
+    };
   }
 
   @Get('my-id')
@@ -88,7 +131,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'User details fetched successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
   async findOne(@Param('id') id: string) {
-    const user = await this.users_service.findOne(+id);
+    const user = await this.users_service.findOne(id);
     return { message: messages.USER_FETCHED, data: user };
   }
 
@@ -105,10 +148,10 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User or mnemonic not found' })
   async revealMnemonic(
     @Param('id') id: string,
-    @GetUser('id') current_user_id: number,
+    @GetUser('id') current_user_id: string,
     @Body() reveal_mnemonic_dto: RevealMnemonicDto,
   ) {
-    const target_user_id = +id;
+    const target_user_id = id;
 
     // 1. Strict Ownership Check: Only users can reveal their own mnemonic
     if (current_user_id !== target_user_id) {
@@ -132,15 +175,15 @@ export class UsersController {
   @ApiOperation({ summary: 'Update authenticated user profile' })
   @ApiResponse({ status: 200, description: 'Profile updated successfully' })
   async updateProfile(
-    @GetUser('id') user_id: number,
+    @GetUser('id') user_id: string,
     @Body() update_user_dto: UpdateUserDto,
-    @Headers('authorization') auth_header: string,
+    @Req() req: RequestWithCookies,
   ) {
     const user = await this.users_service.update(user_id, update_user_dto);
 
     // Sync name changes to Cognito if token is provided
-    if (auth_header && (update_user_dto.first_name || update_user_dto.last_name)) {
-      const token = auth_header.replace('Bearer ', '');
+    const token = req.cookies?.['access_token'];
+    if (token && (update_user_dto.first_name || update_user_dto.last_name)) {
       await this.cognito_auth_service.updateProfile(token, {
         first_name: update_user_dto.first_name,
         last_name: update_user_dto.last_name,
@@ -158,13 +201,13 @@ export class UsersController {
   async update(
     @Param('id') id: string,
     @Body() update_user_dto: UpdateUserDto,
-    @Headers('authorization') auth_header: string,
+    @Req() req: RequestWithCookies,
   ) {
-    const user = await this.users_service.update(+id, update_user_dto);
+    const user = await this.users_service.update(id, update_user_dto);
 
     // Sync name changes to Cognito if token is provided
-    if (auth_header && (update_user_dto.first_name || update_user_dto.last_name)) {
-      const token = auth_header.replace('Bearer ', '');
+    const token = req.cookies?.['access_token'];
+    if (token && (update_user_dto.first_name || update_user_dto.last_name)) {
       await this.cognito_auth_service.updateProfile(token, {
         first_name: update_user_dto.first_name,
         last_name: update_user_dto.last_name,
@@ -180,7 +223,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'User deleted successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
   async remove(@Param('id') id: string) {
-    await this.users_service.remove(+id);
+    await this.users_service.remove(id);
     return { message: messages.USER_DELETED, data: null };
   }
 }

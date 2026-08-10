@@ -94,7 +94,7 @@ export class KmsEnvelopeService {
   async decryptMnemonic(
     envelope_base64: string,
     user_pin?: string,
-    user_id?: number,
+    user_id?: number | string,
   ): Promise<string> {
     try {
       if (user_id) {

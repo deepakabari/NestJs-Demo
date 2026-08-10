@@ -64,7 +64,7 @@ export class UsersService {
     };
   }
 
-  async findOne(id: number) {
+  async findOne(id: string) {
     const user = await this.users_repository.findOneBy({ id });
     if (!user) {
       throw new NotFoundException(messages.USER_NOT_FOUND);
@@ -72,7 +72,7 @@ export class UsersService {
     return user;
   }
 
-  async revealMnemonic(id: number, user_pin?: string): Promise<string> {
+  async revealMnemonic(id: string, user_pin?: string): Promise<string> {
     const user = await this.findOne(id);
     if (!user.mnemonic) {
       throw new NotFoundException('Mnemonic not found for this user');
@@ -93,18 +93,38 @@ export class UsersService {
     return this.users_repository.findOneBy({ cognito_sub: sub });
   }
 
-  async update(id: number, update_user_dto: UpdateUserDto) {
+  async update(id: string, update_user_dto: UpdateUserDto) {
     const user = await this.findOne(id);
 
     if (update_user_dto.email) {
       user.email_hash = this.encryption_service.hash(update_user_dto.email);
     }
 
+    // Automatically set consent timestamp when marketing_consent is toggled on
+    if (update_user_dto.marketing_consent === true && !user.marketing_consent) {
+      user.marketing_consent_at = new Date();
+    } else if (update_user_dto.marketing_consent === false) {
+      user.marketing_consent_at = null;
+    }
+
     const updated_user = this.users_repository.merge(user, update_user_dto);
     return this.users_repository.save(updated_user);
   }
 
-  async remove(id: number): Promise<void> {
+  /**
+   * Update marketing consent for a user.
+   * Records the timestamp when consent was given.
+   */
+  async updateMarketingConsent(id: string, consent: boolean): Promise<User> {
+    const user = await this.findOne(id);
+
+    user.marketing_consent = consent;
+    user.marketing_consent_at = consent ? new Date() : null;
+
+    return this.users_repository.save(user);
+  }
+
+  async remove(id: string): Promise<void> {
     const result = await this.users_repository.delete(id);
     if (result.affected === 0) {
       throw new NotFoundException(messages.USER_NOT_FOUND);

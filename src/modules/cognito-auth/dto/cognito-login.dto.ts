@@ -1,5 +1,5 @@
 import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
-import { ValidationMessages } from 'src/constants/validation.constants';
+import { ValidationMessages } from '../../../constants/validation.constants';
 
 export class CognitoLoginDto {
   @IsNotEmpty({ message: ValidationMessages.email.required })

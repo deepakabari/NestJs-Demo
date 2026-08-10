@@ -1,5 +1,5 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
-import { ValidationMessages } from 'src/constants/validation.constants';
+import { IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { ValidationMessages } from '../../../constants/validation.constants';
 
 export class CognitoSignUpDto {
   @IsNotEmpty({ message: ValidationMessages.email.required })
@@ -28,4 +28,8 @@ export class CognitoSignUpDto {
   @IsOptional()
   @IsString()
   mnemonic?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  marketing_consent?: boolean;
 }

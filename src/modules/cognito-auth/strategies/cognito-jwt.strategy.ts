@@ -1,11 +1,10 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
-import { Request } from 'express';
 import { passportJwtSecret } from 'jwks-rsa';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { messages } from '../../../constants/messages.constants';
-import { CognitoJwtPayload } from '../../../interfaces/auth.interface';
+import { CognitoJwtPayload, RequestWithCookies } from '../../../interfaces/auth.interface';
 import { UsersService } from '../../users/users.service';
 import { CognitoAuthService } from '../cognito-auth.service';
 
@@ -22,7 +21,13 @@ export class CognitoJwtStrategy extends PassportStrategy(Strategy, 'cognito-jwt'
     const issuer = `https://cognito-idp.${region}.amazonaws.com/${user_pool_id}`;
 
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (req: RequestWithCookies) => {
+          return req?.cookies?.['access_token'] || null;
+        },
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        ExtractJwt.fromUrlQueryParameter('token'),
+      ]),
       ignoreExpiration: false,
       passReqToCallback: true,
       // Dynamically fetch Cognito's public keys from JWKS endpoint
@@ -41,56 +46,63 @@ export class CognitoJwtStrategy extends PassportStrategy(Strategy, 'cognito-jwt'
    * Validate the decoded JWT payload.
    * Cognito access tokens have token_use: 'access'.
    */
-  async validate(req: Request, payload: CognitoJwtPayload) {
+  async validate(req: RequestWithCookies, payload: CognitoJwtPayload) {
     // Ensure this is an access token (not an id token)
     if (payload.token_use !== 'access') {
       throw new UnauthorizedException(messages.COGNITO_TOKEN_INVALID);
     }
 
-    // 1. Try to find user by Cognito Sub
-    let local_user = await this.users_service.findBySub(payload.sub);
+    // Extract the raw token to perform an online check with Cognito
+    let access_token = req?.cookies?.['access_token'];
 
-    // 2. If sub not found, check if a user with this email already exists
-    if (!local_user) {
-      let email = payload.email;
-      let first_name = payload.given_name;
-      let last_name = payload.family_name;
-
-      // If attributes are missing from Access Token, fetch them from Cognito UserInfo API
-      if (!email) {
-        try {
-          const auth_header = req.headers.authorization;
-          const access_token = auth_header?.replace('Bearer ', '');
-          if (!access_token) {
-            throw new UnauthorizedException(messages.COGNITO_TOKEN_INVALID);
-          }
-          const cognito_user_info = await this.cognito_auth_service.verifyToken(access_token);
-
-          email = cognito_user_info.attributes.email;
-          first_name = cognito_user_info.attributes.given_name;
-          last_name = cognito_user_info.attributes.family_name;
-        } catch {
-          email = payload.username; // Fallback
-        }
-      }
-
-      const existing_user_by_email = await this.users_service.findByEmail(email);
-
-      if (existing_user_by_email) {
-        // Link the existing user to this new Cognito Sub
-        local_user = await this.users_service.update(existing_user_by_email.id, {
-          cognito_sub: payload.sub,
-        });
-      } else {
-        // 3. If no user exists at all, create a new one (Lazy Sync)
-        local_user = await this.users_service.create({
-          email: email,
-          first_name: first_name || payload.username,
-          last_name: last_name || '',
-          cognito_sub: payload.sub,
-        });
-      }
+    // Fallback to headers or query if cookie is not present
+    if (!access_token) {
+      const auth_header = req.headers.authorization;
+      const query_token = req.query.token as string;
+      access_token = auth_header ? auth_header.replace('Bearer ', '') : query_token;
     }
+
+    if (!access_token) {
+      throw new UnauthorizedException(messages.COGNITO_TOKEN_INVALID);
+    }
+
+    /**
+     * ONLINE VERIFICATION (Mandatory for Logout to work immediately)
+     * JWT tokens are stateless and their signature remains valid until expiration.
+     * By calling GetUser via verifyToken, we ask Cognito if this specific token is still active.
+     * If the user has logged out (RevokeTokenCommand called), this will throw an exception.
+     */
+    await this.cognito_auth_service.verifyToken(access_token);
+
+    // 1. Try to find user by Cognito Sub
+    const local_user = await this.users_service.findBySub(payload.sub);
+    if (!local_user) {
+      throw new UnauthorizedException(messages.COGNITO_TOKEN_INVALID);
+    }
+
+    // 2. If sub not found, check if a user with this email already exists (Lazy Sync)
+    // if (!local_user) {
+    //   const email = cognito_user_info.attributes.email || payload.email || payload.username;
+    //   const first_name = cognito_user_info.attributes.given_name || payload.given_name;
+    //   const last_name = cognito_user_info.attributes.family_name || payload.family_name;
+
+    //   const existing_user_by_email = await this.users_service.findByEmail(email);
+
+    //   if (existing_user_by_email) {
+    //     // Link the existing user to this new Cognito Sub
+    //     local_user = await this.users_service.update(existing_user_by_email.id, {
+    //       cognito_sub: payload.sub,
+    //     });
+    //   } else {
+    //     // 3. If no user exists at all, create a new one
+    //     local_user = await this.users_service.create({
+    //       email: email,
+    //       first_name: first_name || payload.username,
+    //       last_name: last_name || '',
+    //       cognito_sub: payload.sub,
+    //     });
+    //   }
+    // }
 
     return {
       sub: payload.sub,

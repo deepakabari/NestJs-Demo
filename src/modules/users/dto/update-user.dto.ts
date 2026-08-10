@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional, IsString } from 'class-validator';
 
 export class UpdateUserDto {
   @IsOptional()
@@ -20,4 +20,8 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   mnemonic?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  marketing_consent?: boolean;
 }
