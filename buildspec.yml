@@ -21,10 +21,12 @@ phases:
       - echo Pushing the Docker images...
       - docker push $REPOSITORY_URI:latest
       - docker push $REPOSITORY_URI:$IMAGE_TAG
-      - echo Writing image definitions file...
-      # ECS needs to know which image to pull. We tell it to pull the one we just tagged.
-      # Note: We must specify both container names if we are updating both services, 
-      # but since both services use the exact same image, we just output it for both.
-      - printf '[{"name":"nestjs-api-container","imageUri":"%s"},{"name":"nestjs-worker-container","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      - echo Writing image definitions files...
+      # ECS needs to know which image to pull. We must provide separate definitions for each service
+      # because CodePipeline tries to update EVERY container listed in the file.
+      - printf '[{"name":"nestjs-api-container","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > api-imagedefinitions.json
+      - printf '[{"name":"nestjs-worker-container","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > worker-imagedefinitions.json
 artifacts:
-  files: imagedefinitions.json
+  files:
+    - api-imagedefinitions.json
+    - worker-imagedefinitions.json

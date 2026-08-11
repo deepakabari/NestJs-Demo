@@ -219,7 +219,7 @@ Resources:
               Configuration:
                 ClusterName: !Ref EcsClusterName
                 ServiceName: !Ref ApiServiceLogicalName
-                FileName: imagedefinitions.json
+                FileName: api-imagedefinitions.json
               RunOrder: 1
             - Name: DeployWorkerToECS
               ActionTypeId:
@@ -232,5 +232,5 @@ Resources:
               Configuration:
                 ClusterName: !Ref EcsClusterName
                 ServiceName: !Ref WorkerServiceLogicalName
-                FileName: imagedefinitions.json
+                FileName: worker-imagedefinitions.json
               RunOrder: 1
