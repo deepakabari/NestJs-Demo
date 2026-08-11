@@ -4,7 +4,12 @@ import { validate, ValidationError } from 'class-validator';
 
 @Injectable()
 export class ValidationPipe implements PipeTransform<unknown> {
-  async transform(value: unknown, { metatype }: ArgumentMetadata): Promise<unknown> {
+  async transform(value: unknown, { metatype, type }: ArgumentMetadata): Promise<unknown> {
+    // Do not validate custom decorators like @GetUser
+    if (type === 'custom') {
+      return value;
+    }
+
     if (!metatype || !this.toValidate(metatype)) {
       return value;
     }

@@ -1,15 +1,14 @@
 import { Module, NestModule } from '@nestjs/common';
 import { UsersModule } from './modules/users/users.module';
-import { CognitoAuthModule } from './modules/cognito-auth/cognito-auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import AppDataSource from './config/typeorm.config';
-import { EncryptionModule } from './modules/encryption/encryption.module';
 // import { LoggerMiddleware } from './common/middleware/logger.middleware';
 
 import { ScheduleModule } from '@nestjs/schedule';
 import { CronModule } from './modules/cron/cron.module';
 import { LoggerModule } from 'nestjs-pino';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -29,11 +28,10 @@ import { LoggerModule } from 'nestjs-pino';
     }),
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
-    EncryptionModule,
     TypeOrmModule.forRoot(AppDataSource.options),
-    CognitoAuthModule,
     UsersModule,
     CronModule,
+    AuthModule,
   ],
 })
 export class AppModule implements NestModule {

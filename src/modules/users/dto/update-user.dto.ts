@@ -12,12 +12,4 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   last_name?: string;
-
-  @IsOptional()
-  @IsString()
-  cognito_sub?: string;
-
-  @IsOptional()
-  @IsString()
-  mnemonic?: string;
 }

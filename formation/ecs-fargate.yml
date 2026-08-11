@@ -116,9 +116,9 @@ Resources:
                 Action:
                   - ssm:GetParametersByPath
                   - ssm:GetParameters
-                Resource: 
-                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPathPrefix}"
-                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPathPrefix}/*"
+                Resource:
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPathPrefix}'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPathPrefix}/*'
 
   # ---------------------------------------------------------
   # CLOUDWATCH LOGS (For Debugging)

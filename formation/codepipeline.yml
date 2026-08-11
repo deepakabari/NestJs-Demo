@@ -67,12 +67,12 @@ Resources:
                   - s3:GetBucketVersioning
                 Resource:
                   - !GetAtt PipelineArtifactsBucket.Arn
-                  - !Sub "${PipelineArtifactsBucket.Arn}/*"
+                  - !Sub '${PipelineArtifactsBucket.Arn}/*'
               - Effect: Allow
                 Action:
                   - codebuild:BatchGetBuilds
                   - codebuild:StartBuild
-                Resource: "*"
+                Resource: '*'
               - Effect: Allow
                 Action:
                   - codestar-connections:UseConnection
@@ -86,7 +86,7 @@ Resources:
                   - ecs:RegisterTaskDefinition
                   - ecs:UpdateService
                   - iam:PassRole
-                Resource: "*"
+                Resource: '*'
 
   CodeBuildRole:
     Type: AWS::IAM::Role
@@ -106,7 +106,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: "*"
+                Resource: '*'
               - Effect: Allow
                 Action:
                   - s3:PutObject
@@ -114,7 +114,7 @@ Resources:
                   - s3:GetObjectVersion
                 Resource:
                   - !GetAtt PipelineArtifactsBucket.Arn
-                  - !Sub "${PipelineArtifactsBucket.Arn}/*"
+                  - !Sub '${PipelineArtifactsBucket.Arn}/*'
               - Effect: Allow
                 Action:
                   - ecr:GetAuthorizationToken
@@ -125,7 +125,7 @@ Resources:
                   - ecr:UploadLayerPart
                   - ecr:CompleteLayerUpload
                   - ecr:PutImage
-                Resource: "*"
+                Resource: '*'
 
   # ---------------------------------------------------------
   # CODESTAR CONNECTION (GitHub Webhook)
@@ -186,7 +186,7 @@ Resources:
                 - Name: SourceOutput
               Configuration:
                 ConnectionArn: !Ref GitHubConnection
-                FullRepositoryId: !Sub "${GitHubOwner}/${GitHubRepo}"
+                FullRepositoryId: !Sub '${GitHubOwner}/${GitHubRepo}'
                 BranchName: !Ref GitHubBranch
 
         # STAGE 2: BUILD

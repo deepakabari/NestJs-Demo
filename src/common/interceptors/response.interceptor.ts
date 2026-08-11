@@ -2,8 +2,8 @@ import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nes
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { messages } from 'src/constants/messages.constants';
-import { ResponseFormat } from 'src/interfaces/common.interface';
+import { messages } from '../../constants/messages.constants';
+import { ResponseFormat } from '../../interfaces/common.interface';
 
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<T, ResponseFormat<T>> {

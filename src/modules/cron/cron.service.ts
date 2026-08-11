@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -28,7 +28,7 @@ export class CronService {
 
     // The market intervals are every 5 minutes (0, 5, 10, 15...)
     const currentMinuteInCycle = minutes % 5;
-    
+
     // T-30s to T=0: PRE-MARKET (Fetch Prices)
     // Happens at minute 4, 9, 14, 19... from second 30 to 59
     const isPreMarket = currentMinuteInCycle === 4 && seconds >= 30;
@@ -38,7 +38,9 @@ export class CronService {
     const isPostMarket = currentMinuteInCycle === 0 && seconds < 15;
 
     if (isPreMarket) {
-      this.logger.debug(`[PRE-MARKET] Fetching latest price from CoinGecko... (T-${60 - seconds}s until match)`);
+      this.logger.debug(
+        `[PRE-MARKET] Fetching latest price from CoinGecko... (T-${60 - seconds}s until match)`,
+      );
       // TODO: Fetch price from CoinGecko here
     } else if (isPostMarket) {
       this.logger.log(`[MATCHING ENGINE] Running order matcher... (T+${seconds}s since open)`);

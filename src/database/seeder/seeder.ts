@@ -1,3 +1,4 @@
+import * as bcrypt from 'bcryptjs';
 import AppDataSource from '../../config/typeorm.config';
 import { User } from '../../modules/users/entities/user.entity';
 
@@ -11,28 +12,23 @@ async function seed() {
 
   console.log(`Starting to seed ${totalUsers} users...`);
 
+  const default_password = await bcrypt.hash('password123', 10);
+
   for (let i = 0; i < totalUsers; i += batchSize) {
     const users: Partial<User>[] = [];
-    
+
     for (let j = 0; j < batchSize; j++) {
       const index = i + j;
       users.push({
         email: `loaduser_${index}@example.com`,
-        email_hash: `loaduser_${index}@example.com_hash`, // Unique constraint
+        password: default_password,
         first_name: `Load`,
         last_name: `User${index}`,
-        cognito_sub: `sub_${index}`, // Unique constraint
-        mnemonic: 'abandon ability able about above absent absorb abstract absurd abuse access accident',
       });
     }
 
     // Insert batch
-    await userRepository
-      .createQueryBuilder()
-      .insert()
-      .into(User)
-      .values(users)
-      .execute();
+    await userRepository.createQueryBuilder().insert().into(User).values(users).execute();
 
     console.log(`Inserted ${i + batchSize} / ${totalUsers} users...`);
   }

@@ -5,7 +5,6 @@ import { STATUS_CODES } from 'http';
 
 const SENSITIVE_FIELDS = [
   'password',
-  'mnemonic',
   'pin',
   'confirmation_code',
   'new_password',

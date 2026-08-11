@@ -13,12 +13,4 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   last_name?: string;
-
-  @IsOptional()
-  @IsString()
-  cognito_sub?: string;
-
-  @IsOptional()
-  @IsString()
-  mnemonic?: string;
 }

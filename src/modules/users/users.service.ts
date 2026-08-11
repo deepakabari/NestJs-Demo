@@ -1,13 +1,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
 import { messages } from '../../constants/messages.constants';
-import * as bip39 from 'bip39';
-import { EncryptionService } from '../encryption/encryption.service';
-import { KmsEnvelopeService } from '../encryption/kms-envelope.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
@@ -15,27 +12,10 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private users_repository: Repository<User>,
-    private encryption_service: EncryptionService,
-    private kms_envelope_service: KmsEnvelopeService,
   ) {}
 
-  async create(create_user_dto: CreateUserDto): Promise<User> {
-    if (!create_user_dto.mnemonic) {
-      create_user_dto.mnemonic = bip39.generateMnemonic();
-    }
-
-    // Encrypt explicitly via async service call
-    // create_user_dto.mnemonic = await this.kms_envelope_service.encryptMnemonic(
-    //   create_user_dto.mnemonic,
-    // );
-
+  async create(create_user_dto: CreateUserDto & { password?: string }): Promise<User> {
     const user = this.users_repository.create(create_user_dto);
-
-    // Set email hash for fast lookup and uniqueness
-    if (user.email) {
-      user.email_hash = this.encryption_service.hash(user.email);
-    }
-
     return this.users_repository.save(user);
   }
 
@@ -46,9 +26,10 @@ export class UsersService {
     const query_builder = this.users_repository.createQueryBuilder('user');
 
     if (search) {
-      // For encrypted data, we use exact match on hash for performance
-      const search_hash = this.encryption_service.hash(search);
-      query_builder.where('user.email_hash = :search_hash', { search_hash });
+      query_builder
+        .where('user.email LIKE :search', { search: `%${search}%` })
+        .orWhere('user.first_name LIKE :search', { search: `%${search}%` })
+        .orWhere('user.last_name LIKE :search', { search: `%${search}%` });
     }
 
     const [items, total] = await query_builder.skip(skip).take(limit).getManyAndCount();
@@ -72,34 +53,25 @@ export class UsersService {
     return user;
   }
 
-  async revealMnemonic(id: number, user_pin?: string): Promise<string> {
-    const user = await this.findOne(id);
-    if (!user.mnemonic) {
-      throw new NotFoundException('Mnemonic not found for this user');
-    }
-
-    // Decrypt explicitly only when specifically requested
-    const mnemonic = await this.kms_envelope_service.decryptMnemonic(user.mnemonic, user_pin, id);
-    return mnemonic;
-  }
-
   async findByEmail(email: string) {
-    const email_hash = this.encryption_service.hash(email);
-    const user = await this.users_repository.findOneBy({ email_hash });
+    const user = await this.users_repository.findOne({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        first_name: true,
+        last_name: true,
+        created_at: true,
+        updated_at: true,
+        deleted_at: true,
+      },
+    });
     return user;
-  }
-
-  async findBySub(sub: string) {
-    return this.users_repository.findOneBy({ cognito_sub: sub });
   }
 
   async update(id: number, update_user_dto: UpdateUserDto) {
     const user = await this.findOne(id);
-
-    if (update_user_dto.email) {
-      user.email_hash = this.encryption_service.hash(update_user_dto.email);
-    }
-
     const updated_user = this.users_repository.merge(user, update_user_dto);
     return this.users_repository.save(updated_user);
   }
