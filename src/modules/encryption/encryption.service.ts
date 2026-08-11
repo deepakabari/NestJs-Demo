@@ -43,7 +43,13 @@ export class EncryptionService implements OnModuleInit {
     const region = this.config_service.get<string>('AWS_REGION', 'us-east-1');
 
     // In Production, we leave the client empty so it uses the server's IAM Role automatically.
-    const client = new SecretsManagerClient({ region });
+    const client = new SecretsManagerClient({
+      region,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
 
     try {
       const response = await client.send(new GetSecretValueCommand({ SecretId: secret_name }));

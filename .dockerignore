@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.gitignore
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+README.md
+docker-compose.yml
+ecosystem.config.js
+logs
+coverage

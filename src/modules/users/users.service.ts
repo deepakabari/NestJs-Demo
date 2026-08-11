@@ -25,9 +25,9 @@ export class UsersService {
     }
 
     // Encrypt explicitly via async service call
-    create_user_dto.mnemonic = await this.kms_envelope_service.encryptMnemonic(
-      create_user_dto.mnemonic,
-    );
+    // create_user_dto.mnemonic = await this.kms_envelope_service.encryptMnemonic(
+    //   create_user_dto.mnemonic,
+    // );
 
     const user = this.users_repository.create(create_user_dto);
 
@@ -40,7 +40,7 @@ export class UsersService {
   }
 
   async findAll(query?: { search?: string; page?: number; limit?: number }) {
-    const { search, page = 1, limit = 10 } = query || {};
+    const { search, page = 1, limit = 20 } = query || {};
     const skip = (page - 1) * limit;
 
     const query_builder = this.users_repository.createQueryBuilder('user');

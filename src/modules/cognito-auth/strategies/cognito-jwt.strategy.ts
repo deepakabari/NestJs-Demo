@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
-import { Request } from 'express';
+import { FastifyRequest } from 'fastify';
 import { passportJwtSecret } from 'jwks-rsa';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { messages } from '../../../constants/messages.constants';
@@ -41,7 +41,7 @@ export class CognitoJwtStrategy extends PassportStrategy(Strategy, 'cognito-jwt'
    * Validate the decoded JWT payload.
    * Cognito access tokens have token_use: 'access'.
    */
-  async validate(req: Request, payload: CognitoJwtPayload) {
+  async validate(req: FastifyRequest, payload: CognitoJwtPayload) {
     // Ensure this is an access token (not an id token)
     if (payload.token_use !== 'access') {
       throw new UnauthorizedException(messages.COGNITO_TOKEN_INVALID);
@@ -59,7 +59,10 @@ export class CognitoJwtStrategy extends PassportStrategy(Strategy, 'cognito-jwt'
       // If attributes are missing from Access Token, fetch them from Cognito UserInfo API
       if (!email) {
         try {
-          const auth_header = req.headers.authorization;
+          const raw_auth_header = req.headers.authorization as string | string[] | undefined;
+          const auth_header: string | undefined = Array.isArray(raw_auth_header)
+            ? raw_auth_header[0]
+            : raw_auth_header;
           const access_token = auth_header?.replace('Bearer ', '');
           if (!access_token) {
             throw new UnauthorizedException(messages.COGNITO_TOKEN_INVALID);

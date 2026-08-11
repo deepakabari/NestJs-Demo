@@ -1,0 +1,236 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CI/CD CodePipeline for NestJS ECS Fargate (API + Worker)'
+
+Parameters:
+  GitHubOwner:
+    Type: String
+    Description: GitHub Username or Organization
+    Default: deepakabari
+  GitHubRepo:
+    Type: String
+    Description: GitHub Repository Name
+    Default: NestJs-Demo
+  GitHubBranch:
+    Type: String
+    Description: Branch to trigger the pipeline
+    Default: fastify-code
+  EcrRepositoryName:
+    Type: String
+    Description: Name of the ECR repository
+    Default: nestjs-demo
+  EcsClusterName:
+    Type: String
+    Description: Name of the existing ECS Cluster
+    Default: nestjs-matching-engine-cluster
+  # We must get the precise ECS Service Names from the previous CloudFormation stack
+  # or provide sensible defaults if we know the physical names.
+  # To avoid hardcoding random hashes, we prompt for them.
+  ApiServiceLogicalName:
+    Type: String
+    Description: The exact physical name of the API ECS Service (from AWS Console)
+  WorkerServiceLogicalName:
+    Type: String
+    Description: The exact physical name of the Worker ECS Service (from AWS Console)
+
+Resources:
+  # ---------------------------------------------------------
+  # S3 BUCKET (For Pipeline Artifacts)
+  # ---------------------------------------------------------
+  PipelineArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      VersioningConfiguration:
+        Status: Enabled
+
+  # ---------------------------------------------------------
+  # IAM ROLES
+  # ---------------------------------------------------------
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodePipelinePolicy
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+                Resource:
+                  - !GetAtt PipelineArtifactsBucket.Arn
+                  - !Sub "${PipelineArtifactsBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - codestar-connections:UseConnection
+                Resource: !Ref GitHubConnection
+              - Effect: Allow
+                Action:
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:DescribeTasks
+                  - ecs:ListTasks
+                  - ecs:RegisterTaskDefinition
+                  - ecs:UpdateService
+                  - iam:PassRole
+                Resource: "*"
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodeBuildPolicy
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                Resource:
+                  - !GetAtt PipelineArtifactsBucket.Arn
+                  - !Sub "${PipelineArtifactsBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
+                Resource: "*"
+
+  # ---------------------------------------------------------
+  # CODESTAR CONNECTION (GitHub Webhook)
+  # ---------------------------------------------------------
+  GitHubConnection:
+    Type: AWS::CodeStarConnections::Connection
+    Properties:
+      ConnectionName: nestjs-demo-github-conn
+      ProviderType: GitHub
+
+  # ---------------------------------------------------------
+  # CODEBUILD PROJECT
+  # ---------------------------------------------------------
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: nestjs-demo-build
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+          - Name: IMAGE_REPO_NAME
+            Value: !Ref EcrRepositoryName
+      Source:
+        Type: CODEPIPELINE
+
+  # ---------------------------------------------------------
+  # CODEPIPELINE
+  # ---------------------------------------------------------
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: nestjs-demo-pipeline
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineArtifactsBucket
+      Stages:
+        # STAGE 1: SOURCE
+        - Name: Source
+          Actions:
+            - Name: SourceCode
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              OutputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                ConnectionArn: !Ref GitHubConnection
+                FullRepositoryId: !Sub "${GitHubOwner}/${GitHubRepo}"
+                BranchName: !Ref GitHubBranch
+
+        # STAGE 2: BUILD
+        - Name: Build
+          Actions:
+            - Name: BuildAndPushDockerImage
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: BuildOutput
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+
+        # STAGE 3: DEPLOY (Parallel Deploy to API and Worker)
+        - Name: Deploy
+          Actions:
+            - Name: DeployApiToECS
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: ECS
+                Version: '1'
+              InputArtifacts:
+                - Name: BuildOutput
+              Configuration:
+                ClusterName: !Ref EcsClusterName
+                ServiceName: !Ref ApiServiceLogicalName
+                FileName: imagedefinitions.json
+              RunOrder: 1
+            - Name: DeployWorkerToECS
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: ECS
+                Version: '1'
+              InputArtifacts:
+                - Name: BuildOutput
+              Configuration:
+                ClusterName: !Ref EcsClusterName
+                ServiceName: !Ref WorkerServiceLogicalName
+                FileName: imagedefinitions.json
+              RunOrder: 1

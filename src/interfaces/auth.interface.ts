@@ -1,4 +1,4 @@
-import { Request } from 'express';
+import { FastifyRequest } from 'fastify';
 
 export interface CognitoJwtPayload {
   sub: string;
@@ -11,7 +11,7 @@ export interface CognitoJwtPayload {
   family_name?: string;
 }
 
-export interface RequestWithCognitoUser extends Request {
+export interface RequestWithCognitoUser extends FastifyRequest {
   user: {
     id: number;
     sub: string;

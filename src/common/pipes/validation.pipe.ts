@@ -13,7 +13,7 @@ export class ValidationPipe implements PipeTransform<unknown> {
     const errors: ValidationError[] = await validate(object, {
       whitelist: true,
       forbidNonWhitelisted: true,
-      stopAtFirstError: true
+      stopAtFirstError: true,
     });
 
     if (errors.length > 0) {
@@ -29,7 +29,7 @@ export class ValidationPipe implements PipeTransform<unknown> {
 
   private getFirstError(errors: ValidationError[]): string {
     const error = errors[0];
-    
+
     if (error.constraints) {
       const constraintKeys = Object.keys(error.constraints);
       if (constraintKeys.length > 0) {

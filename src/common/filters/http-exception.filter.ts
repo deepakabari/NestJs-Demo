@@ -1,5 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
-import { Request, Response } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { messages } from 'src/constants/messages.constants';
 import { CustomExceptionResponse } from 'src/interfaces/common.interface';
 
@@ -7,8 +7,8 @@ import { CustomExceptionResponse } from 'src/interfaces/common.interface';
 export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const response = ctx.getResponse<FastifyReply>();
+    const request = ctx.getRequest<FastifyRequest>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = messages.INTERNAL_SERVER_ERROR;
@@ -42,7 +42,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     }
 
-    request['resMessage'] = message;
+    (request as unknown as { resMessage?: string }).resMessage = message;
 
     const errorResponse: Record<string, unknown> = {
       success: false,
@@ -54,6 +54,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
       errorResponse['error_code'] = error_code;
     }
 
-    response.status(status).json(errorResponse);
+    response.status(status).send(errorResponse);
   }
 }

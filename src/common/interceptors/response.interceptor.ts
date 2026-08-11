@@ -1,5 +1,5 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
-import { Request, Response } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { messages } from 'src/constants/messages.constants';
@@ -22,10 +22,10 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, ResponseFormat
         }
 
         const ctx = context.switchToHttp();
-        const request = ctx.getRequest<Request>();
-        const response = ctx.getResponse<Response>();
+        const request = ctx.getRequest<FastifyRequest>();
+        const response = ctx.getResponse<FastifyReply>();
 
-        request['resMessage'] = message;
+        (request as unknown as { resMessage?: string }).resMessage = message;
 
         return {
           success: true,
