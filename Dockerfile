@@ -13,14 +13,16 @@ COPY . .
 # Build the NestJS application
 RUN npm run build
 
-# Stage 2: Setup production environment
-FROM node:20-alpine AS production
+# Stage 2: Setup development environment
+FROM node:20-alpine AS development
 
 WORKDIR /usr/src/app
 
-# Only copy the production dependencies
+ENV NODE_ENV=development
+
+# Copy all dependencies (including devDependencies like pino-pretty)
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy the built artifacts from the builder stage
 COPY --from=builder /usr/src/app/dist ./dist

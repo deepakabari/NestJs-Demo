@@ -14,23 +14,10 @@ Parameters:
     Type: String
     Description: The URI of the Docker image in ECR (e.g., 123456789.dkr.ecr.us-east-1.amazonaws.com/nestjs-demo:latest)
 
-  DbHost:
+  SsmPathPrefix:
     Type: String
-    Description: Database host endpoint
-  DbPort:
-    Type: String
-    Description: Database port
-    Default: '3306'
-  DbUsername:
-    Type: String
-    Description: Database username
-  DbPassword:
-    Type: String
-    Description: Database password
-    NoEcho: true
-  DbName:
-    Type: String
-    Description: Database name
+    Description: The SSM Parameter Store path prefix (e.g., /nestjs-demo/prod)
+    Default: '/nestjs-demo/prod'
 Resources:
   # ---------------------------------------------------------
   # SECURITY GROUPS
@@ -111,6 +98,28 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 
+  EcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SSMParameterAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParametersByPath
+                  - ssm:GetParameters
+                Resource: 
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPathPrefix}"
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPathPrefix}/*"
+
   # ---------------------------------------------------------
   # CLOUDWATCH LOGS (For Debugging)
   # ---------------------------------------------------------
@@ -133,6 +142,7 @@ Resources:
       RequiresCompatibilities:
         - FARGATE
       ExecutionRoleArn: !Ref EcsTaskExecutionRole
+      TaskRoleArn: !Ref EcsTaskRole
       ContainerDefinitions:
         - Name: nestjs-api-container
           Image: !Ref EcrImageUrl
@@ -140,19 +150,11 @@ Resources:
             - ContainerPort: 3000
           Environment:
             - Name: NODE_ENV
-              Value: production
+              Value: development
             - Name: RUN_CRONS
               Value: 'false'
-            - Name: DB_HOST
-              Value: !Ref DbHost
-            - Name: DB_PORT
-              Value: !Ref DbPort
-            - Name: DB_USERNAME
-              Value: !Ref DbUsername
-            - Name: DB_PASSWORD
-              Value: !Ref DbPassword
-            - Name: DB_NAME
-              Value: !Ref DbName
+            - Name: SSM_PATH_PREFIX
+              Value: !Ref SsmPathPrefix
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -166,7 +168,7 @@ Resources:
     Properties:
       Cluster: !Ref EcsCluster
       TaskDefinition: !Ref ApiTaskDefinition
-      DesiredCount: 2
+      DesiredCount: 1
       LaunchType: FARGATE
       NetworkConfiguration:
         AwsvpcConfiguration:
@@ -192,24 +194,17 @@ Resources:
       RequiresCompatibilities:
         - FARGATE
       ExecutionRoleArn: !Ref EcsTaskExecutionRole
+      TaskRoleArn: !Ref EcsTaskRole
       ContainerDefinitions:
         - Name: nestjs-worker-container
           Image: !Ref EcrImageUrl
           Environment:
             - Name: NODE_ENV
-              Value: production
+              Value: development
             - Name: RUN_CRONS
               Value: 'true'
-            - Name: DB_HOST
-              Value: !Ref DbHost
-            - Name: DB_PORT
-              Value: !Ref DbPort
-            - Name: DB_USERNAME
-              Value: !Ref DbUsername
-            - Name: DB_PASSWORD
-              Value: !Ref DbPassword
-            - Name: DB_NAME
-              Value: !Ref DbName
+            - Name: SSM_PATH_PREFIX
+              Value: !Ref SsmPathPrefix
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -230,6 +225,44 @@ Resources:
           SecurityGroups:
             - !Ref FargateContainerSecurityGroup
           Subnets: !Ref SubnetIds
+
+  # ---------------------------------------------------------
+  # AUTO-SCALING FOR API SERVICE
+  # ---------------------------------------------------------
+  ApiScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 3
+      MinCapacity: 1
+      ResourceId: !Join ['/', ['service', !Ref EcsCluster, !GetAtt ApiService.Name]]
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  ApiCpuScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: ApiCpuScaling
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ApiScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 70.0
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 60
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+
+  ApiMemoryScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: ApiMemoryScaling
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ApiScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 70.0
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 60
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageMemoryUtilization
 
 Outputs:
   ApiUrl:

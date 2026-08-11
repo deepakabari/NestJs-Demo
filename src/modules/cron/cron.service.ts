@@ -17,24 +17,33 @@ export class CronService {
     }
   }
 
-  // Example: High-frequency polling (runs every second)
+  // Master Tick: Runs every second but only executes logic during specific windows
   @Cron('* * * * * *')
-  handlePriceFetch() {
+  handleMarketCycle() {
     if (!this.run_crons) return; // Safely abort if this is an API web container
 
-    // 1. Check if we are inside the pre-market window (e.g. 11:59:30 - 12:00:00)
-    // 2. Fetch price from CoinGecko
-    this.logger.debug(`[${new Date().toISOString()}] Fetching latest price from CoinGecko...`);
-  }
+    const now = new Date();
+    const seconds = now.getSeconds();
+    const minutes = now.getMinutes();
 
-  // Example: Matching Engine runner
-  @Cron('*/5 * * * * *') // Changed to every 5 seconds just for testing visibility
-  handleMatchingEngine() {
-    if (!this.run_crons) return;
+    // The market intervals are every 5 minutes (0, 5, 10, 15...)
+    const currentMinuteInCycle = minutes % 5;
+    
+    // T-30s to T=0: PRE-MARKET (Fetch Prices)
+    // Happens at minute 4, 9, 14, 19... from second 30 to 59
+    const isPreMarket = currentMinuteInCycle === 4 && seconds >= 30;
 
-    this.logger.log(`[${new Date().toISOString()}] Starting Matching Engine...`);
-    // 1. Create Idempotency Audit Log in DB
-    // 2. Fetch pending orders FOR UPDATE
-    // 3. Match buyers and sellers
+    // T=0 to T+15s: POST-MARKET (Run Matching Engine)
+    // Happens at minute 0, 5, 10, 15... from second 0 to 14
+    const isPostMarket = currentMinuteInCycle === 0 && seconds < 15;
+
+    if (isPreMarket) {
+      this.logger.debug(`[PRE-MARKET] Fetching latest price from CoinGecko... (T-${60 - seconds}s until match)`);
+      // TODO: Fetch price from CoinGecko here
+    } else if (isPostMarket) {
+      this.logger.log(`[MATCHING ENGINE] Running order matcher... (T+${seconds}s since open)`);
+      // TODO: Match buyers and sellers here
+    }
+    // For the other 4 minutes and 15 seconds, it silently does nothing!
   }
 }
