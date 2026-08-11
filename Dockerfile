@@ -1,5 +1,5 @@
 # Stage 1: Build the application
-FROM node:20-alpine AS builder
+FROM public.ecr.aws/docker/library/node:20-alpine AS builder
 
 WORKDIR /usr/src/app
 
@@ -14,7 +14,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Setup development environment
-FROM node:20-alpine AS development
+FROM public.ecr.aws/docker/library/node:20-alpine AS development
 
 WORKDIR /usr/src/app
 
