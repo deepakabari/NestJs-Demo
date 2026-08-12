@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist-spec",
+    "types": ["jest", "node"],
+    "isolatedModules": true,
+    "importHelpers": true
+  },
+  "include": ["src/**/*.spec.ts", "src/**/*.spec.d.ts", "src/test/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist", "dist-spec"]
+}

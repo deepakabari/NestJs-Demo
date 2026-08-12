@@ -17,6 +17,8 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
     "strictPropertyInitialization": false,
-    "rootDir": "./src"
-  }
+    "rootDir": "./src",
+    "importHelpers": true
+  },
+  "exclude": ["node_modules", "dist", "test", "**/*spec.ts", "src/test"]
 }
